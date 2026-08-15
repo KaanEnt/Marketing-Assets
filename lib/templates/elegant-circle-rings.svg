@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 1100" data-preset="us-letter" data-template="elegant-circle-rings">
   <defs>
-    <clipPath id="tpl-photo-clip-a"><circle cx="700" cy="112" r="248"/></clipPath>
-    <clipPath id="tpl-photo-clip-b"><circle cx="164" cy="700" r="228"/></clipPath>
-    <filter id="tpl-grayscale" x="0%" y="0%" width="100%" height="100%">
+    <clipPath id="ecr-photo-clip-a"><circle cx="700" cy="112" r="248"/></clipPath>
+    <clipPath id="ecr-photo-clip-b"><circle cx="164" cy="700" r="228"/></clipPath>
+    <filter id="ecr-grayscale" x="0%" y="0%" width="100%" height="100%">
       <feColorMatrix type="saturate" values="0"/>
     </filter>
   </defs>

@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 1100" data-preset="us-letter" data-template="bold-flat-arc">
   <defs>
-    <pattern id="tpl-stripes" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+    <pattern id="bfa-stripes" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
       <rect x="0" y="0" width="6" height="14" fill="#F4531C"/>
     </pattern>
-    <clipPath id="tpl-disc-a"><circle cx="742" cy="132" r="88"/></clipPath>
-    <clipPath id="tpl-disc-b"><circle cx="132" cy="880" r="88"/></clipPath>
-    <clipPath id="tpl-photo-clip">
+    <clipPath id="bfa-disc-a"><circle cx="742" cy="132" r="88"/></clipPath>
+    <clipPath id="bfa-disc-b"><circle cx="132" cy="880" r="88"/></clipPath>
+    <clipPath id="bfa-photo-clip">
       <path d="M862 470 a392 392 0 0 0 -392 392 v250 h392 Z"/>
     </clipPath>
   </defs>
@@ -15,8 +15,8 @@
   </g>
 
   <g id="accent-discs" data-h="scale" data-v="scale">
-    <g clip-path="url(#tpl-disc-a)"><rect x="654" y="44" width="176" height="176" fill="url(#tpl-stripes)"/></g>
-    <g clip-path="url(#tpl-disc-b)"><rect x="44" y="792" width="176" height="176" fill="url(#tpl-stripes)"/></g>
+    <g clip-path="url(#bfa-disc-a)"><rect x="654" y="44" width="176" height="176" fill="url(#bfa-stripes)"/></g>
+    <g clip-path="url(#bfa-disc-b)"><rect x="44" y="792" width="176" height="176" fill="url(#bfa-stripes)"/></g>
   </g>
 
   <g id="photo-slot" data-h="right" data-v="bottom" data-slot="image" data-prompt="lifestyle photograph of a person in the subject setting, natural light">
