@@ -4,6 +4,7 @@ import { brandKitPrompt, type BrandKit } from "@/lib/brand/kit";
 import { houseStyle } from "@/lib/ai/prompts/house-style";
 import { templateCatalog, templateSvg, isTemplateId, type TemplateId } from "@/lib/templates";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "@/lib/svg/validate";
+import { ICON_NAMES } from "@/lib/svg/icons";
 import type { Preset } from "@/lib/layout/presets";
 
 const CONTRACT = `# Output contract
@@ -37,8 +38,10 @@ structure carries as much weight as its appearance. These rules are hard:
 8. Figurative illustration is a <g data-slot="illustration" data-prompt="..."> whose
    data-prompt describes the art. Do not attempt to draw people, animals, vehicles or
    scenes in SVG paths: it will look wrong. Geometry, marks and ornament are yours.
-9. Small interface glyphs use <g data-icon="phone"> with a lucide icon name. Do not
-   draw your own phone, mail or pin glyphs.
+9. Small interface glyphs use <g data-icon="name">, empty, positioned with a
+   transform. Do not draw your own phone, mail or pin glyphs. Available names:
+   ${ICON_NAMES.join(", ")}.
+   Glyphs are drawn on a 24x24 grid, so scale the group to the size you want.
 10. Forbidden anywhere: <script>, <style>, <use>, <foreignObject>, <iframe>, any
     on* attribute, and any href that is not "#local" or a data:image URI.
 11. You cannot measure text, so estimate it and leave slack. A line's rendered width
