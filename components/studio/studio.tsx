@@ -24,6 +24,7 @@ export function Studio() {
   const [statusNote, setStatusNote] = useState("");
   const [input, setInput] = useState("");
   const [adapting, setAdapting] = useState(false);
+  const [model, setModel] = useState<string | null>(null);
   const agentId = useRef<string | undefined>(undefined);
   const started = useRef(false);
 
@@ -48,6 +49,7 @@ export function Studio() {
           {
             agent: (data) => {
               agentId.current = data.agentId as string;
+              if (typeof data.model === "string") setModel(data.model);
             },
             token: (data) => {
               const text = data.text as string;
@@ -62,7 +64,24 @@ export function Studio() {
               setStatus("correcting");
               setStatusNote(`Fixing contract violations (pass ${data.attempt as number})`);
             },
+            // The primary model spent its correction rounds without producing a
+            // document that satisfies the contract, so a different one starts
+            // clean. Said out loud rather than silently, because the project's
+            // agent moves with it and every later turn runs on the new model.
+            rescuing: (data) => {
+              setStatus("correcting");
+              setStatusNote(`${data.from as string} could not satisfy the contract. Retrying on ${data.to as string}`);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  text: `${data.from as string} could not satisfy the output contract after two corrections. Starting over on ${data.to as string}.`,
+                },
+                { role: "assistant", text: "" },
+              ]);
+            },
             document: (data) => {
+              if (typeof data.model === "string") setModel(data.model);
               const clean = sanitizeSvg(data.svg as string);
               const incomingPreset = data.presetId as string;
               setDocument(
@@ -172,6 +191,15 @@ export function Studio() {
               <path d="M16 8H9.5a3.5 3.5 0 0 0 0 7H13M16 8l-3-3M16 8l-3 3" />
             </HeaderButton>
           </div>
+
+          {model && (
+            <span
+              title="Model that produced the current document"
+              className="rounded-full border border-mist px-2.5 py-1 font-mono text-[11px] text-graphite/80"
+            >
+              {model}
+            </span>
+          )}
 
           <FormatBar
             preset={preset}
