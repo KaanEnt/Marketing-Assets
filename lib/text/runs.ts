@@ -1,5 +1,5 @@
 import type { Measure, TextStyle } from "@/lib/text/measure";
-import { fitText, wrapText } from "@/lib/text/wrap";
+import { blockDrop, fitText, wrapText } from "@/lib/text/wrap";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 /** Kept clear between two text blocks sharing a row, in user units. */
@@ -159,11 +159,15 @@ export function layoutRun(
     letterSpacing: run.style.letterSpacing,
   };
 
+  // What the block actually has to fit into: the room left between its first
+  // baseline and the bottom of its box, not the box's full height.
+  const room = run.column.y + run.column.height - run.baseline;
+
   const result = run.canShrink
     ? fitText({
         content: run.content,
         width,
-        height: run.column.height,
+        height: room,
         style,
         lineHeight: run.style.lineHeight,
         measure,
@@ -173,11 +177,11 @@ export function layoutRun(
 
   writeRun(element, result.lines, { ...run.style, size: result.size }, run.x, run.baseline);
 
-  const height = result.lines.length * result.size * run.style.lineHeight;
+  const drop = blockDrop(result.lines.length, result.size, run.style.lineHeight);
   return {
     lines: result.lines,
     size: result.size,
-    overflows: result.overflows || result.width > width || height > run.column.height,
+    overflows: result.overflows || result.width > width || drop > room,
   };
 }
 
