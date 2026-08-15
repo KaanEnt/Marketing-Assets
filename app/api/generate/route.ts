@@ -3,7 +3,7 @@ import { CursorAgentError } from "@cursor/sdk";
 import { resumeOrCreate, runTurn, type AgentHandle } from "@/lib/ai/agent";
 import { composePrompt, correctionPrompt } from "@/lib/ai/prompts/compose";
 import { closeSseController, createSseSender, sseHeaders } from "@/lib/ai/sse";
-import { DEFAULT_MODEL } from "@/lib/ai/models";
+import { DEFAULT_MODEL, rescueModelFor } from "@/lib/ai/models";
 import { extractSvg, stripSvg } from "@/lib/svg/extract";
 import { formatViolations, validateSvg } from "@/lib/svg/validate";
 import { DEFAULT_PRESET, PRESETS, getPreset } from "@/lib/layout/presets";
@@ -41,7 +41,11 @@ export async function POST(request: Request) {
   }
 
   const preset = getPreset(payload.presetId ?? "") ?? PRESETS[DEFAULT_PRESET];
-  const model = payload.model?.trim() || DEFAULT_MODEL;
+  const requested = payload.model?.trim();
+  const primary = requested || DEFAULT_MODEL;
+  // A model the user picked by hand is respected as picked; escalating behind
+  // their back would make the picker a suggestion.
+  const rescue = requested ? null : rescueModelFor(primary);
 
   let agent: AgentHandle | undefined;
   let closed = false;
@@ -50,41 +54,43 @@ export async function POST(request: Request) {
     async start(controller) {
       const send = createSseSender(controller, () => closed);
 
-      try {
-        const resumed = await resumeOrCreate(payload.agentId, model, message);
-        agent = resumed.agent;
-        send("agent", { agentId: agent.agentId, resumed: !resumed.isNew });
+      const prompt = [
+        composePrompt({
+          preset,
+          brandKit: payload.brandKit,
+          currentLayerIds: payload.currentLayerIds,
+          templateId: payload.templateId,
+        }),
+        "",
+        "## Brief",
+        "",
+        message,
+      ].join("\n");
 
-        const prompt = [
-          composePrompt({
-            preset,
-            brandKit: payload.brandKit,
-            currentLayerIds: payload.currentLayerIds,
-            templateId: payload.templateId,
-          }),
-          "",
-          "## Brief",
-          "",
-          message,
-        ].join("\n");
+      /**
+       * One model's full attempt: compose, then spend its correction rounds.
+       * Returns null when it never satisfied the contract, which is the signal to
+       * escalate rather than to fail.
+       */
+      const attempt = async (model: string, resumeId: string | undefined) => {
+        const resumed = await resumeOrCreate(resumeId, model, message);
+        agent = resumed.agent;
+        send("agent", { agentId: agent.agentId, resumed: !resumed.isNew, model });
 
         let turn = await runTurn(agent, prompt, model, (text) => send("token", { text }));
-        if (turn.status === "error") {
-          send("error", { message: "The design agent run failed." });
-          return;
-        }
+        if (turn.status === "error") return null;
 
         let svg = extractSvg(turn.text);
         let result = svg ? validateSvg(svg, preset) : null;
 
-        for (let attempt = 0; attempt < MAX_CORRECTIONS; attempt += 1) {
+        for (let round = 0; round < MAX_CORRECTIONS; round += 1) {
           if (svg && result?.ok) break;
 
           const problem = svg
             ? formatViolations(result!.violations)
             : "- No SVG document was found in the reply. Return one fenced ```svg block.";
 
-          send("correcting", { attempt: attempt + 1, violations: problem });
+          send("correcting", { attempt: round + 1, violations: problem, model });
 
           turn = await runTurn(agent, correctionPrompt(problem), model);
           if (turn.status === "error") break;
@@ -94,20 +100,40 @@ export async function POST(request: Request) {
         }
 
         if (!svg || !result?.ok) {
+          return { failed: true as const, violations: result ? formatViolations(result.violations) : undefined };
+        }
+
+        return { failed: false as const, svg, groupIds: result.groupIds, note: stripSvg(turn.text), status: turn.status, model };
+      };
+
+      try {
+        let outcome = await attempt(primary, payload.agentId);
+
+        if ((!outcome || outcome.failed) && rescue) {
+          send("rescuing", { from: primary, to: rescue, violations: outcome?.violations });
+          // Dispose the exhausted agent before starting a clean one, so two live
+          // agents are never billed against the same turn.
+          await agent?.[Symbol.asyncDispose]().catch(() => {});
+          agent = undefined;
+          outcome = await attempt(rescue, undefined);
+        }
+
+        if (!outcome || outcome.failed) {
           send("error", {
             message: "The agent could not produce a document satisfying the contract.",
-            violations: result ? formatViolations(result.violations) : undefined,
+            violations: outcome?.violations,
           });
           return;
         }
 
         send("document", {
-          svg,
+          svg: outcome.svg,
           presetId: preset.id,
-          layerIds: result.groupIds,
-          note: stripSvg(turn.text),
+          layerIds: outcome.groupIds,
+          note: outcome.note,
+          model: outcome.model,
         });
-        send("done", { status: turn.status });
+        send("done", { status: outcome.status, model: outcome.model });
       } catch (error) {
         send("error", {
           message: error instanceof Error ? error.message : "Unknown generation error",

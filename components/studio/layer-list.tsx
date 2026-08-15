@@ -28,7 +28,7 @@ export function LayerList({ busy }: { busy: boolean }) {
   const toggleLock = useEditor((state) => state.toggleLock);
 
   return (
-    <aside className="flex w-[288px] shrink-0 flex-col border-l border-mist">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-mist px-4 py-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-graphite">Layers</h2>
         {layers.length > 0 && (
@@ -136,6 +136,6 @@ export function LayerList({ busy }: { busy: boolean }) {
           A pink dot marks a layer you moved by hand.
         </p>
       )}
-    </aside>
+    </div>
   );
 }

@@ -8,6 +8,7 @@ import { AdaptPanel } from "@/components/studio/adapt-panel";
 import { Canvas } from "@/components/studio/canvas";
 import { FormatBar } from "@/components/studio/format-bar";
 import { LayerList } from "@/components/studio/layer-list";
+import { TextProperties } from "@/components/studio/text-properties";
 import { useEditor } from "@/lib/editor/store";
 import { streamSse } from "@/lib/sse-client";
 import { readLayers, sanitizeSvg } from "@/lib/svg/layers";
@@ -24,11 +25,13 @@ export function Studio() {
   const [statusNote, setStatusNote] = useState("");
   const [input, setInput] = useState("");
   const [adapting, setAdapting] = useState(false);
+  const [model, setModel] = useState<string | null>(null);
   const agentId = useRef<string | undefined>(undefined);
   const started = useRef(false);
 
   const presetId = useEditor((state) => state.presetId);
   const layers = useEditor((state) => state.layers);
+  const selection = useEditor((state) => state.selection);
   const setDocument = useEditor((state) => state.setDocument);
   const undo = useEditor((state) => state.undo);
   const redo = useEditor((state) => state.redo);
@@ -48,6 +51,7 @@ export function Studio() {
           {
             agent: (data) => {
               agentId.current = data.agentId as string;
+              if (typeof data.model === "string") setModel(data.model);
             },
             token: (data) => {
               const text = data.text as string;
@@ -62,7 +66,24 @@ export function Studio() {
               setStatus("correcting");
               setStatusNote(`Fixing contract violations (pass ${data.attempt as number})`);
             },
+            // The primary model spent its correction rounds without producing a
+            // document that satisfies the contract, so a different one starts
+            // clean. Said out loud rather than silently, because the project's
+            // agent moves with it and every later turn runs on the new model.
+            rescuing: (data) => {
+              setStatus("correcting");
+              setStatusNote(`${data.from as string} could not satisfy the contract. Retrying on ${data.to as string}`);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  text: `${data.from as string} could not satisfy the output contract after two corrections. Starting over on ${data.to as string}.`,
+                },
+                { role: "assistant", text: "" },
+              ]);
+            },
             document: (data) => {
+              if (typeof data.model === "string") setModel(data.model);
               const clean = sanitizeSvg(data.svg as string);
               const incomingPreset = data.presetId as string;
               setDocument(
@@ -173,6 +194,15 @@ export function Studio() {
             </HeaderButton>
           </div>
 
+          {model && (
+            <span
+              title="Model that produced the current document"
+              className="rounded-full border border-mist px-2.5 py-1 font-mono text-[11px] text-graphite/80"
+            >
+              {model}
+            </span>
+          )}
+
           <FormatBar
             preset={preset}
             disabled={busy || layers.length === 0}
@@ -262,7 +292,13 @@ export function Studio() {
         </aside>
 
         <Canvas busy={busy} preset={preset} />
-        <LayerList busy={busy} />
+
+        <aside className="flex w-[288px] shrink-0 flex-col border-l border-mist">
+          <LayerList busy={busy} />
+          {/* Keyed on the layer so the run picker resets when the selection moves,
+              rather than pointing at a run index the new layer may not have. */}
+          <TextProperties key={selection[0] ?? "none"} />
+        </aside>
       </div>
 
       <AdaptPanel
