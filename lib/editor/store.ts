@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { identityTransform, type BaseBox, type LayerTransform } from "@/lib/editor/transform";
 import type { LayerInfo } from "@/lib/svg/layers";
+import type { TextEdit, TextRun } from "@/lib/text/runs";
 import { DEFAULT_PRESET, type PresetId } from "@/lib/layout/presets";
 
 export type EditorLayer = LayerInfo & {
@@ -19,7 +20,10 @@ export type EditorLayer = LayerInfo & {
   locked: boolean;
 };
 
-type Snapshot = Record<string, { transform: LayerTransform | null; visible: boolean; locked: boolean }>;
+type Snapshot = {
+  layers: Record<string, { transform: LayerTransform | null; visible: boolean; locked: boolean }>;
+  textEdits: Record<string, TextEdit>;
+};
 
 const HISTORY_LIMIT = 50;
 
@@ -40,6 +44,11 @@ type EditorState = {
   past: Snapshot[];
   future: Snapshot[];
   slotState: Record<string, SlotState>;
+  textEdits: Record<string, TextEdit>;
+  /** Every block of copy as the document authored it, before any edit. */
+  runs: Record<string, TextRun>;
+  /** Run currently open in the inline editor, as layerId#index. */
+  editingRun: string | null;
   /**
    * Locked from the first illustration of a project and reused verbatim after.
    * Raster art cannot be recoloured, so consistency has to be bought at prompt
@@ -48,6 +57,9 @@ type EditorState = {
   illustrationStyle?: string;
   setSlotState: (id: string, state: SlotState) => void;
   setIllustrationStyle: (style: string) => void;
+  setTextEdit: (key: string, patch: TextEdit) => void;
+  setRuns: (runs: Record<string, TextRun>) => void;
+  setEditingRun: (key: string | null) => void;
 
   setDocument: (
     svg: string,
@@ -80,11 +92,23 @@ export const useEditor = create<EditorState>((set, get) => ({
   past: [],
   future: [],
   slotState: {},
+  textEdits: {},
+  runs: {},
+  editingRun: null,
 
   setSlotState: (id, state) =>
     set((current) => ({ slotState: { ...current.slotState, [id]: state } })),
 
   setIllustrationStyle: (style) => set({ illustrationStyle: style }),
+
+  setTextEdit: (key, patch) => {
+    get().pushHistory();
+    set((state) => ({ textEdits: { ...state.textEdits, [key]: { ...state.textEdits[key], ...patch } } }));
+  },
+
+  setRuns: (runs) => set({ runs }),
+
+  setEditingRun: (key) => set({ editingRun: key }),
 
   /**
    * Merge an incoming document into the current stack by id.
@@ -118,6 +142,12 @@ export const useEditor = create<EditorState>((set, get) => ({
       // illustration style deliberately survives, since it defines the project.
       // An adaptation is the exception: it carries the pictures over in markup.
       slotState: options?.keepSlots ? get().slotState : {},
+      // Copy edits are keyed to a run's position inside a layer, and a new
+      // document is free to have rewritten that copy deliberately. Carrying them
+      // over would silently overwrite what the model was just asked to produce.
+      textEdits: options?.keepSlots ? get().textEdits : {},
+      runs: {},
+      editingRun: null,
     });
   },
 
@@ -138,7 +168,7 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   pushHistory: () =>
     set((state) => ({
-      past: [...state.past, snapshot(state.layers)].slice(-HISTORY_LIMIT),
+      past: [...state.past, snapshot(state)].slice(-HISTORY_LIMIT),
       future: [],
     })),
 
@@ -187,8 +217,9 @@ export const useEditor = create<EditorState>((set, get) => ({
 
       return {
         past: state.past.slice(0, -1),
-        future: [snapshot(state.layers), ...state.future].slice(0, HISTORY_LIMIT),
+        future: [snapshot(state), ...state.future].slice(0, HISTORY_LIMIT),
         layers: restore(state.layers, previous),
+        textEdits: previous.textEdits,
       };
     }),
 
@@ -198,30 +229,32 @@ export const useEditor = create<EditorState>((set, get) => ({
       if (!next) return state;
 
       return {
-        past: [...state.past, snapshot(state.layers)].slice(-HISTORY_LIMIT),
+        past: [...state.past, snapshot(state)].slice(-HISTORY_LIMIT),
         future: state.future.slice(1),
         layers: restore(state.layers, next),
+        textEdits: next.textEdits,
       };
     }),
 
-  reset: () => set({ svg: null, layers: [], selection: [], past: [], future: [] }),
+  reset: () =>
+    set({ svg: null, layers: [], selection: [], past: [], future: [], textEdits: {}, runs: {}, editingRun: null }),
 }));
 
-function snapshot(layers: EditorLayer[]): Snapshot {
-  const result: Snapshot = {};
-  for (const layer of layers) {
-    result[layer.id] = {
+function snapshot(state: { layers: EditorLayer[]; textEdits: Record<string, TextEdit> }): Snapshot {
+  const layers: Snapshot["layers"] = {};
+  for (const layer of state.layers) {
+    layers[layer.id] = {
       transform: layer.transform ? { ...layer.transform } : null,
       visible: layer.visible,
       locked: layer.locked,
     };
   }
-  return result;
+  return { layers, textEdits: { ...state.textEdits } };
 }
 
 function restore(layers: EditorLayer[], state: Snapshot): EditorLayer[] {
   return layers.map((layer) => {
-    const saved = state[layer.id];
+    const saved = state.layers[layer.id];
     if (!saved) return layer;
     return {
       ...layer,
