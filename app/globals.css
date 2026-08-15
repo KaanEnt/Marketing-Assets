@@ -34,20 +34,26 @@ body {
  * font-family on an SVG element is a presentation attribute, which loses to any
  * real CSS rule, so mapping the attribute back onto the loaded variable restores
  * the intended typeface without touching the document.
+ *
+ * Prefix matching, not exact: models legitimately write CSS stacks such as
+ * font-family="Source Serif 4, serif", which an exact selector would miss.
+ *
+ * ORDER MATTERS. ^="Inter" also matches "Inter Tight", and these selectors have
+ * equal specificity, so the later rule wins. Keep Inter Tight below Inter.
  */
-[font-family="Inter"] { font-family: var(--font-inter); }
-[font-family="Inter Tight"] { font-family: var(--font-inter-tight); }
-[font-family="Archivo"] { font-family: var(--font-archivo); }
-[font-family="Manrope"] { font-family: var(--font-manrope); }
-[font-family="Poppins"] { font-family: var(--font-poppins); }
-[font-family="Montserrat"] { font-family: var(--font-montserrat); }
-[font-family="Roboto"] { font-family: var(--font-roboto); }
-[font-family="Oswald"] { font-family: var(--font-oswald); }
-[font-family="Space Grotesk"] { font-family: var(--font-space-grotesk); }
-[font-family="DM Sans"] { font-family: var(--font-dm-sans); }
-[font-family="Playfair Display"] { font-family: var(--font-playfair-display); }
-[font-family="Source Serif 4"] { font-family: var(--font-source-serif-4); }
-[font-family="JetBrains Mono"] { font-family: var(--font-jetbrains-mono); }
+[font-family^="Inter"] { font-family: var(--font-inter); }
+[font-family^="Inter Tight"] { font-family: var(--font-inter-tight); }
+[font-family^="Archivo"] { font-family: var(--font-archivo); }
+[font-family^="Manrope"] { font-family: var(--font-manrope); }
+[font-family^="Poppins"] { font-family: var(--font-poppins); }
+[font-family^="Montserrat"] { font-family: var(--font-montserrat); }
+[font-family^="Roboto"] { font-family: var(--font-roboto); }
+[font-family^="Oswald"] { font-family: var(--font-oswald); }
+[font-family^="Space Grotesk"] { font-family: var(--font-space-grotesk); }
+[font-family^="DM Sans"] { font-family: var(--font-dm-sans); }
+[font-family^="Playfair Display"] { font-family: var(--font-playfair-display); }
+[font-family^="Source Serif 4"] { font-family: var(--font-source-serif-4); }
+[font-family^="JetBrains Mono"] { font-family: var(--font-jetbrains-mono); }
 
 @keyframes drift-a {
   0%, 100% { transform: translate3d(-6%, -4%, 0) scale(1.05); }
