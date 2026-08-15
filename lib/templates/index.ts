@@ -3,79 +3,10 @@ import "server-only";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const TEMPLATE_IDS = [
-  "corporate-photo-panel",
-  "rounded-mask-offset",
-  "bold-flat-arc",
-  "elegant-circle-rings",
-] as const;
+import { TEMPLATES, TEMPLATE_IDS, type Template, type TemplateId } from "@/lib/templates/catalog";
+import type { Preset } from "@/lib/layout/presets";
 
-export type TemplateId = (typeof TEMPLATE_IDS)[number];
-
-export type Template = {
-  id: TemplateId;
-  label: string;
-  /** When this skeleton is the right choice. Written for the model, not for a UI. */
-  use: string;
-  /** The structural moves that define it, so the model can vary without losing the shape. */
-  techniques: string[];
-};
-
-export const TEMPLATES: Record<TemplateId, Template> = {
-  "corporate-photo-panel": {
-    id: "corporate-photo-panel",
-    label: "Corporate photo panel",
-    use: "Established, trustworthy, information-dense. Insurance, finance, legal, healthcare, professional services. Best when there is a service list and a full contact block to carry.",
-    techniques: [
-      "full-bleed tinted background wash",
-      "thin repeating vertical line pattern as a texture band",
-      "translucent white accent rectangles scattered at low opacity",
-      "large rectangular masked photo panel that text overlaps",
-      "eyebrow line above a two-line heavy headline",
-      "bulleted service list in the left column",
-      "two-column contact block anchored to the bottom margin",
-    ],
-  },
-  "rounded-mask-offset": {
-    id: "rounded-mask-offset",
-    label: "Rounded mask with offset outline",
-    use: "Modern, confident, minimal. Automotive, trades, B2B services, anything that benefits from restraint and negative space. Best when the copy is short.",
-    techniques: [
-      "generous negative space on a near-white ground",
-      "photo masked into a large rounded corner shape bleeding off two edges",
-      "a second offset outlined copy of that shape sitting behind it",
-      "solid color panel with its own offset outline holding the key message",
-      "oversized headline anchored to the bottom left",
-      "stacked contact lines under the headline",
-    ],
-  },
-  "bold-flat-arc": {
-    id: "bold-flat-arc",
-    label: "Bold flat with arc mask",
-    use: "Energetic, consumer-facing, high contrast. Travel, retail, events, promotions, anything youthful. Best when a hero illustration carries the message.",
-    techniques: [
-      "saturated full-bleed color field",
-      "photo clipped into a large sweeping arc from a corner",
-      "diagonal stripe halftone discs as corner accents",
-      "heavy three-line headline in reversed white",
-      "a dedicated illustration slot across the middle band",
-      "compact brand block with URL in the lower left",
-    ],
-  },
-  "elegant-circle-rings": {
-    id: "elegant-circle-rings",
-    label: "Elegant circles and rings",
-    use: "Refined, editorial, considered. Consultancies, wellness, real estate, corporate reports. Best when there is real body copy to lay out.",
-    techniques: [
-      "light neutral ground with two circular masked photos on opposing corners",
-      "concentric arc rings framing each circle at decreasing stroke weight",
-      "grayscale filter on photography so the accent color stays dominant",
-      "accent-colored headline set left, three lines",
-      "two-column body: mission paragraph over a bulleted list",
-      "icon-led contact rows using data-icon glyphs",
-    ],
-  },
-};
+export * from "@/lib/templates/catalog";
 
 const cache = new Map<TemplateId, string>();
 
@@ -89,18 +20,78 @@ export function templateSvg(id: TemplateId): string {
   return svg;
 }
 
-export function isTemplateId(id: string): id is TemplateId {
-  return (TEMPLATE_IDS as readonly string[]).includes(id);
+/**
+ * Every skeleton paired with its source, for the picker.
+ *
+ * The file is its own thumbnail: what the card shows is exactly the document the
+ * model is handed, so the gallery cannot drift from what generation actually does.
+ * Def ids are unique per file, which is what lets eleven of these share one page
+ * without borrowing each other's masks, patterns and gradients. Top-level layer
+ * ids do repeat across files and are deliberately left alone, because those are
+ * the layer identities the editor is built on and nothing resolves them by url().
+ */
+export function templateGallery(): (Template & { svg: string })[] {
+  return TEMPLATE_IDS.map((id) => ({ ...TEMPLATES[id], svg: templateSvg(id) }));
 }
 
-/** Catalog shown to the model so it can choose a skeleton before composing. */
-export function templateCatalog(): string {
-  return TEMPLATE_IDS.map((id) => {
-    const template = TEMPLATES[id];
+/**
+ * Catalog shown to the model when it has to choose a skeleton itself.
+ *
+ * Filtered to the skeletons actually drawn at this format. Offering a Letter
+ * flyer as the model's reference for a YouTube thumbnail is worse than offering
+ * nothing: the proportions do not transfer, and the flyer's furniture (service
+ * list, contact block) is wrong for the medium.
+ */
+export function templateCatalog(preset: Preset): string {
+  const matching = TEMPLATE_IDS.map((id) => TEMPLATES[id]).filter(
+    (template) => template.presetId === preset.id,
+  );
+
+  if (matching.length === 0) {
     return [
-      `### ${template.id}`,
-      template.use,
-      ...template.techniques.map((technique) => `- ${technique}`),
+      "## Skeleton",
+      "",
+      `No stock layout is drawn at ${preset.label}, so compose freely from the house`,
+      "style rather than adapting a layout built for another format.",
     ].join("\n");
-  }).join("\n\n");
+  }
+
+  return [
+    "## Skeletons",
+    "",
+    `Proven layouts drawn at ${preset.label}. Pick the one that fits the brief and`,
+    "compose in its spirit, or compose freely if none fit. Name your choice in your",
+    "one-line description.",
+    "",
+    matching.map(describe).join("\n\n"),
+  ].join("\n");
+}
+
+/** The skeleton itself, when the user picked one from the gallery. */
+export function templateBrief(template: Template): string {
+  return [
+    "## Skeleton",
+    "",
+    `The user picked "${template.label}". ${template.use}`,
+    "",
+    "Fill the layout below. Keep its layer ids, its constraint choices and its",
+    "structural moves. Replace the copy, the palette and the proportions as the brief",
+    "requires. You may add or drop a layer where the brief genuinely calls for it.",
+    "",
+    "The moves that define it, so you can vary it without losing the shape:",
+    "",
+    ...template.techniques.map((technique) => `- ${technique}`),
+    "",
+    "```svg",
+    templateSvg(template.id),
+    "```",
+  ].join("\n");
+}
+
+function describe(template: Template): string {
+  return [
+    `### ${template.id}`,
+    template.use,
+    ...template.techniques.map((technique) => `- ${technique}`),
+  ].join("\n");
 }
