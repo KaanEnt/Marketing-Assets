@@ -13,8 +13,15 @@ const KIND_STYLE: Record<LayerKind, { label: string; dot: string }> = {
   illustration: { label: "art", dot: "bg-amber" },
 };
 
+const SLOT_LABEL: Record<string, string> = {
+  pending: "queued",
+  generating: "generating",
+  failed: "failed",
+};
+
 export function LayerList({ busy }: { busy: boolean }) {
   const layers = useEditor((state) => state.layers);
+  const slotState = useEditor((state) => state.slotState);
   const selection = useEditor((state) => state.selection);
   const select = useEditor((state) => state.select);
   const toggleVisible = useEditor((state) => state.toggleVisible);
@@ -41,6 +48,7 @@ export function LayerList({ busy }: { busy: boolean }) {
           const style = KIND_STYLE[layer.kind];
           const isSelected = selection.includes(layer.id);
           const moved = layer.transform && layer.baseBox && !isIdentity(layer.transform, layer.baseBox);
+          const slotStatus = slotState[layer.id];
 
           return (
             <div
@@ -70,7 +78,16 @@ export function LayerList({ busy }: { busy: boolean }) {
                     )}
                   </span>
                   <span className="block truncate font-mono text-[10px] text-graphite/60">
-                    {style.label} · {layer.h}/{layer.v}
+                    {slotStatus && slotStatus !== "filled" ? (
+                      <span className={slotStatus === "failed" ? "text-magenta" : "text-amber"}>
+                        {SLOT_LABEL[slotStatus]}
+                        {slotStatus === "generating" && "..."}
+                      </span>
+                    ) : (
+                      <>
+                        {style.label} · {layer.h}/{layer.v}
+                      </>
+                    )}
                   </span>
                 </span>
               </button>
