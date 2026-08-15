@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-preset="yt-thumb" data-template="yt-face-punch">
+  <defs>
+    <pattern id="punch-stripes" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect x="0" y="0" width="8" height="18" fill="#FFD400"/>
+    </pattern>
+    <clipPath id="punch-flare-clip"><circle cx="960" cy="340" r="300"/></clipPath>
+  </defs>
+
+  <g id="bg-field" data-h="stretch" data-v="stretch">
+    <rect x="0" y="0" width="1280" height="720" fill="#0E1116"/>
+  </g>
+
+  <g id="accent-flare" data-h="scale" data-v="scale">
+    <g clip-path="url(#punch-flare-clip)">
+      <rect x="660" y="40" width="600" height="600" fill="url(#punch-stripes)" opacity="0.32"/>
+    </g>
+  </g>
+
+  <g id="subject-slot" data-h="right" data-v="bottom" data-slot="illustration" data-prompt="cutout portrait of one person reacting with wide-eyed surprise, head and shoulders, facing the camera, transparent background">
+    <rect x="660" y="110" width="620" height="610" fill="none"/>
+  </g>
+
+  <g id="kicker-bar" data-h="left" data-v="top" data-fit="shrink" data-box="64 64 250 54">
+    <rect x="64" y="64" width="250" height="54" rx="8" fill="#FFD400"/>
+    <text x="84" y="103" font-family="Archivo" font-size="32" font-weight="800" letter-spacing="2" fill="#0E1116">TUTORIAL</text>
+  </g>
+
+  <g id="headline" data-h="left" data-v="center" data-fit="shrink" data-box="64 130 596 460">
+    <text x="64" y="250" font-family="Archivo" font-size="150" font-weight="800" letter-spacing="-5" fill="#FFFFFF"><tspan x="64" dy="0">STOP</tspan><tspan x="64" dy="150">DOING</tspan><tspan x="64" dy="150">THIS.</tspan></text>
+  </g>
+
+  <g id="frame-rule" data-h="stretch" data-v="stretch">
+    <rect x="8" y="8" width="1264" height="704" fill="none" stroke="#FFD400" stroke-width="12"/>
+  </g>
+</svg>
