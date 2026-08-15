@@ -8,6 +8,13 @@ export type EditorLayer = LayerInfo & {
   /** Measured from the DOM once the document renders; null until then. */
   baseBox: BaseBox | null;
   transform: LayerTransform | null;
+  /**
+   * Where this layer started, when that is not the authored position. A format
+   * adaptation moves every layer, and without a new baseline the panel would mark
+   * all of them as hand-edited, which is exactly the signal the mark exists to
+   * carry. Null means the authored geometry is the baseline.
+   */
+  baseline: LayerTransform | null;
   visible: boolean;
   locked: boolean;
 };
@@ -17,6 +24,13 @@ type Snapshot = Record<string, { transform: LayerTransform | null; visible: bool
 const HISTORY_LIMIT = 50;
 
 export type SlotState = "pending" | "generating" | "filled" | "failed";
+
+export type SetDocumentOptions = {
+  /** Positions solved elsewhere, e.g. a format adaptation. Wins over carry-over. */
+  transforms?: Record<string, LayerTransform>;
+  /** Set when the incoming markup already contains the generated pictures. */
+  keepSlots?: boolean;
+};
 
 type EditorState = {
   svg: string | null;
@@ -35,7 +49,12 @@ type EditorState = {
   setSlotState: (id: string, state: SlotState) => void;
   setIllustrationStyle: (style: string) => void;
 
-  setDocument: (svg: string, presetId: PresetId, layers: LayerInfo[]) => void;
+  setDocument: (
+    svg: string,
+    presetId: PresetId,
+    layers: LayerInfo[],
+    options?: SetDocumentOptions,
+  ) => void;
   setBaseBoxes: (boxes: Record<string, BaseBox>) => void;
   select: (ids: string[]) => void;
   /**
@@ -74,7 +93,7 @@ export const useEditor = create<EditorState>((set, get) => ({
    * transform, visibility and lock the user set. Without this every revision
    * would silently discard their manual work.
    */
-  setDocument: (svg, presetId, incoming) => {
+  setDocument: (svg, presetId, incoming, options) => {
     const existing = new Map(get().layers.map((layer) => [layer.id, layer]));
 
     set({
@@ -86,7 +105,8 @@ export const useEditor = create<EditorState>((set, get) => ({
           ...layer,
           // Geometry changed, so the measured box is stale and gets re-measured.
           baseBox: null,
-          transform: previous?.transform ?? null,
+          transform: options?.transforms?.[layer.id] ?? previous?.transform ?? null,
+          baseline: options?.transforms?.[layer.id] ?? null,
           visible: previous?.visible ?? true,
           locked: previous?.locked ?? false,
         };
@@ -96,7 +116,8 @@ export const useEditor = create<EditorState>((set, get) => ({
       future: [],
       // Geometry is new, so previously filled slots must be regenerated. The
       // illustration style deliberately survives, since it defines the project.
-      slotState: {},
+      // An adaptation is the exception: it carries the pictures over in markup.
+      slotState: options?.keepSlots ? get().slotState : {},
     });
   },
 

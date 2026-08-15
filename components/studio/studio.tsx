@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Wordmark } from "@/components/wordmark";
+import { AdaptPanel } from "@/components/studio/adapt-panel";
 import { Canvas } from "@/components/studio/canvas";
+import { FormatBar } from "@/components/studio/format-bar";
 import { LayerList } from "@/components/studio/layer-list";
 import { useEditor } from "@/lib/editor/store";
 import { streamSse } from "@/lib/sse-client";
 import { readLayers, sanitizeSvg } from "@/lib/svg/layers";
+import { refineMessage } from "@/lib/ai/prompts/refine";
+import type { AdaptCandidate } from "@/lib/layout/adapt";
 import { PRESETS, isPresetId, type PresetId } from "@/lib/layout/presets";
 
 type Message = { role: "user" | "assistant"; text: string };
@@ -19,6 +23,7 @@ export function Studio() {
   const [status, setStatus] = useState<Status>("idle");
   const [statusNote, setStatusNote] = useState("");
   const [input, setInput] = useState("");
+  const [adapting, setAdapting] = useState(false);
   const agentId = useRef<string | undefined>(undefined);
   const started = useRef(false);
 
@@ -95,6 +100,38 @@ export function Studio() {
     [setDocument],
   );
 
+  /**
+   * Take an adapted document as the live one.
+   *
+   * The transforms are handed over explicitly rather than left to the usual
+   * carry-over-by-id path, because those carried transforms belong to the old
+   * frame: reusing them would place every layer where it sat on a differently
+   * shaped artboard and undo the entire solve.
+   */
+  const applyCandidate = useCallback(
+    (candidate: AdaptCandidate) => {
+      const clean = sanitizeSvg(candidate.svg);
+      setDocument(clean, candidate.preset.id, readLayers(clean), {
+        transforms: candidate.transforms,
+        keepSlots: true,
+      });
+      setAdapting(false);
+
+      const fixed = candidate.issues.filter((issue) => issue.fixed).length;
+      const open = candidate.issues.length - fixed;
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: `Adapted to ${candidate.preset.label} (${candidate.preset.width} × ${candidate.preset.height}). ${
+            fixed > 0 ? `${fixed} layer${fixed === 1 ? "" : "s"} auto-corrected. ` : ""
+          }${open > 0 ? `${open} problem${open === 1 ? "" : "s"} left for a rework.` : "No problems found."}`,
+        },
+      ]);
+    },
+    [setDocument],
+  );
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
@@ -136,12 +173,11 @@ export function Studio() {
             </HeaderButton>
           </div>
 
-          <span className="rounded-full border border-mist px-3 py-1 text-sm font-medium text-graphite">
-            {preset.label}
-          </span>
-          <span className="font-mono text-xs text-graphite/70">
-            {preset.width} × {preset.height}
-          </span>
+          <FormatBar
+            preset={preset}
+            disabled={busy || layers.length === 0}
+            onAdapt={() => setAdapting(true)}
+          />
         </div>
       </header>
 
@@ -228,6 +264,24 @@ export function Studio() {
         <Canvas busy={busy} preset={preset} />
         <LayerList busy={busy} />
       </div>
+
+      <AdaptPanel
+        open={adapting}
+        busy={busy}
+        onClose={() => setAdapting(false)}
+        onApply={applyCandidate}
+        onRefine={(candidate) => {
+          // Show the solved version first. Even an imperfect adaptation is a
+          // better thing to sit and look at than the previous format while the
+          // model works, and if the rework fails the user still has this.
+          applyCandidate(candidate);
+          void generate(
+            refineMessage(candidate.preset, candidate.issues),
+            candidate.preset.id,
+            Object.keys(candidate.transforms),
+          );
+        }}
+      />
     </div>
   );
 }

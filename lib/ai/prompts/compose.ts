@@ -3,7 +3,7 @@ import "server-only";
 import { brandKitPrompt, type BrandKit } from "@/lib/brand/kit";
 import { houseStyle } from "@/lib/ai/prompts/house-style";
 import { templateCatalog, templateSvg, isTemplateId, type TemplateId } from "@/lib/templates";
-import { H_CONSTRAINTS, V_CONSTRAINTS } from "@/lib/svg/validate";
+import { H_CONSTRAINTS, V_CONSTRAINTS } from "@/lib/layout/constraints";
 import { ICON_NAMES } from "@/lib/svg/icons";
 import type { Preset } from "@/lib/layout/presets";
 
@@ -20,13 +20,21 @@ structure carries as much weight as its appearance. These rules are hard:
 3. Every top-level <g> has a unique, lowercase, kebab-case, semantic id that
    describes its ROLE, not its appearance: "photo-slot", "headline", "logo-lockup",
    "contact", "bg-wash", "accent-discs". Never "group-1" or "rect-4".
-4. Every top-level <g> carries data-h and data-v anchoring constraints.
+4. Every top-level <g> carries data-h and data-v anchoring constraints. They are
+   how this design gets re-solved into every other format, so they are structure,
+   not decoration.
    data-h: ${H_CONSTRAINTS.join(" | ")}
    data-v: ${V_CONSTRAINTS.join(" | ")}
-   Pick them by intent: a background is stretch/stretch, a corner ornament is
+   left, right, top and bottom hold the layer against that edge and keep its gap
+   to it in proportion. center holds it relative to the middle. scale places it
+   proportionally within the frame. stretch spans it between both edges.
+   Pick by intent: a background is stretch/stretch, a corner ornament is
    scale/scale, a headline is usually left/top, a contact block is left/bottom.
-   Never use stretch on something round or on a fixed-aspect ornament: it will be
-   distorted into an ellipse when the design is adapted to another format.
+   stretch is the ONLY constraint that permits a layer to change shape. Every
+   other layer is scaled by a single factor on both axes, so its proportions
+   survive. Use stretch where reshaping is the point, such as a background wash, a
+   full-height rule, or a photo panel that should widen. Never put it on anything
+   round, on a logo lockup, or on a fixed-aspect ornament.
 5. Every <g> containing <text> also carries data-box="x y w h", the box the text is
    allowed to occupy. Text wrapping is computed from this box, so a wrong box means
    text that overflows or clips.

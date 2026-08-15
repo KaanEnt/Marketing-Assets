@@ -2,13 +2,13 @@ import { parseHTML } from "linkedom";
 
 import { FONT_NAMES } from "@/lib/text/fonts";
 import { ICON_NAMES, isIconName } from "@/lib/svg/icons";
+import {
+  H_CONSTRAINTS,
+  V_CONSTRAINTS,
+  isHConstraint,
+  isVConstraint,
+} from "@/lib/layout/constraints";
 import type { Preset } from "@/lib/layout/presets";
-
-export const H_CONSTRAINTS = ["left", "right", "center", "scale", "stretch"] as const;
-export const V_CONSTRAINTS = ["top", "bottom", "center", "scale", "stretch"] as const;
-
-export type HConstraint = (typeof H_CONSTRAINTS)[number];
-export type VConstraint = (typeof V_CONSTRAINTS)[number];
 
 export type Violation = {
   /** Stable code so the correction prompt can group repeats. */
@@ -178,14 +178,6 @@ export function primaryFamily(value: string): string {
 function isSafeHref(value: string): boolean {
   const trimmed = value.trim().toLowerCase();
   return trimmed.startsWith("#") || trimmed.startsWith("data:image/");
-}
-
-export function isHConstraint(value: string): value is HConstraint {
-  return (H_CONSTRAINTS as readonly string[]).includes(value);
-}
-
-export function isVConstraint(value: string): value is VConstraint {
-  return (V_CONSTRAINTS as readonly string[]).includes(value);
 }
 
 /** Deduplicated, human-readable violation list for the correction turn. */

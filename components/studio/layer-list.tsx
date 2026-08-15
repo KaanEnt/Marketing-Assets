@@ -1,7 +1,7 @@
 "use client";
 
 import { useEditor } from "@/lib/editor/store";
-import { isIdentity } from "@/lib/editor/transform";
+import { identityTransform, sameTransform } from "@/lib/editor/transform";
 import type { LayerKind } from "@/lib/svg/layers";
 
 // Green marks editable vector, amber marks generated raster. Same grammar the
@@ -47,7 +47,12 @@ export function LayerList({ busy }: { busy: boolean }) {
         {[...layers].reverse().map((layer) => {
           const style = KIND_STYLE[layer.kind];
           const isSelected = selection.includes(layer.id);
-          const moved = layer.transform && layer.baseBox && !isIdentity(layer.transform, layer.baseBox);
+          // Measured against wherever the layer started, which after a format
+          // adaptation is the solved position rather than the authored one.
+          const moved =
+            layer.transform &&
+            layer.baseBox &&
+            !sameTransform(layer.transform, layer.baseline ?? identityTransform(layer.baseBox));
           const slotStatus = slotState[layer.id];
 
           return (

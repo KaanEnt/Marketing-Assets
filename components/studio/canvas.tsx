@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { Canvas as FabricCanvas, Rect as FabricRect } from "fabric";
 
 import { useEditor } from "@/lib/editor/store";
+import { registerLiveRoot } from "@/lib/editor/live-document";
 import { useSlotFilling } from "@/components/studio/use-slot-filling";
 import { frameTargets, snapAxis, type SnapGuide, type SnapTarget } from "@/lib/editor/snapping";
 import {
@@ -82,6 +83,11 @@ export function Canvas({ busy, preset }: CanvasProps) {
     host.innerHTML = svg
       ? svg.replace("<svg", `<svg style="width:100%;height:100%;display:block"`)
       : "";
+
+    // Publish the live tree so adaptation and export read the document as it
+    // actually stands, glyphs and generated pictures included.
+    registerLiveRoot(host.querySelector("svg"));
+    return () => registerLiveRoot(null);
   }, [svg]);
 
   // Resolve icon glyphs and generate art for empty photo/illustration slots.
@@ -95,25 +101,50 @@ export function Canvas({ busy, preset }: CanvasProps) {
 
     const root = host.querySelector("svg");
     if (!root) return;
+    let cancelled = false;
 
-    const boxes: Record<string, BaseBox> = {};
-    for (const group of Array.from(root.children)) {
-      if (!(group instanceof SVGGElement)) continue;
-      const id = group.getAttribute("id");
-      if (!id) continue;
+    const measure = () => {
+      if (cancelled) return;
 
-      // Measure before any user transform is applied, or the box compounds.
-      const existing = group.getAttribute("transform");
-      group.removeAttribute("transform");
-      const box = group.getBBox();
-      if (existing) group.setAttribute("transform", existing);
+      const boxes: Record<string, BaseBox> = {};
+      for (const group of Array.from(root.children)) {
+        if (!(group instanceof SVGGElement)) continue;
+        const id = group.getAttribute("id");
+        if (!id) continue;
 
-      if (box.width > 0 && box.height > 0) {
-        boxes[id] = { x: box.x, y: box.y, width: box.width, height: box.height };
+        // Measure before any user transform is applied, or the box compounds.
+        const existing = group.getAttribute("transform");
+        group.removeAttribute("transform");
+        const box = group.getBBox();
+        if (existing) group.setAttribute("transform", existing);
+
+        if (box.width > 0 && box.height > 0) {
+          boxes[id] = { x: box.x, y: box.y, width: box.width, height: box.height };
+        }
       }
-    }
 
-    setBaseBoxes(boxes);
+      setBaseBoxes(boxes);
+    };
+
+    /**
+     * Wait for the real typefaces before believing any text measurement.
+     *
+     * Until a webfont lands, text is laid out in the fallback face and its box
+     * comes back a couple of units off. Nothing downstream can recover from that,
+     * because the wrong box is what Fabric's handles, the snapping targets and
+     * the format solver all build on: a two-unit error in a headline's height is
+     * what puts it two units outside a story's safe area after adaptation.
+     *
+     * getBBox first, deliberately. Forcing layout is what makes the browser begin
+     * loading the faces this document actually references, so fonts.ready has
+     * something to wait for instead of resolving instantly on an empty queue.
+     */
+    root.getBBox();
+    void document.fonts.ready.then(measure);
+
+    return () => {
+      cancelled = true;
+    };
   }, [svg, setBaseBoxes]);
 
   // Write transforms and visibility onto the live nodes.
