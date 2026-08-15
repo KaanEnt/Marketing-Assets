@@ -4,13 +4,16 @@ import { Cursor } from "@cursor/sdk";
 
 export type ModelOption = { id: string; label: string };
 
-// Cursor.models.list() reports base ids (gpt-5.6-sol) rather than the effort-suffixed
-// variants the raw REST catalog exposes, so the SDK-facing id is the short one.
+// Cursor.models.list() reports base ids (grok-4.6) rather than the effort-suffixed
+// variants the raw REST catalog exposes (cursor-grok-4.6-high-fast), so the
+// SDK-facing id is the short one.
 // Deliberately NOT CURSOR_CHAT_MODEL: that name is already set in the ambient shell
 // and would silently override this app's default.
-export const DEFAULT_MODEL = process.env.ASSETS_MODEL || "gpt-5.6-sol";
+export const DEFAULT_MODEL = process.env.ASSETS_MODEL || "grok-4.6";
 
 export const fallbackModels: ModelOption[] = [
+  { id: "grok-4.6", label: "Cursor Grok 4.6" },
+  { id: "grok-4.5", label: "Cursor Grok 4.5" },
   { id: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
   { id: "gpt-5.6-terra", label: "GPT-5.6 Terra" },
   { id: "claude-opus-5", label: "Opus 5" },
