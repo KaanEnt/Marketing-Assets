@@ -6,13 +6,44 @@ import { safeBox } from "@/lib/layout/presets";
 // they hold at every format. Measured off the references rather than invented: the
 // headline band, body floor and photo area ratios all come from taking proportions
 // off real flyers that work.
-const TYPE_BANDS = {
+type Band = readonly [number, number];
+
+type Bands = {
+  headline: Band;
+  subhead: Band;
+  body: Band;
+  caption: Band;
+  floor: number;
+};
+
+const TYPE_BANDS: Bands = {
   headline: [0.05, 0.09],
   subhead: [0.024, 0.036],
   body: [0.016, 0.024],
   caption: [0.013, 0.018],
   floor: 0.012,
-} as const;
+};
+
+/**
+ * Formats whose viewing size breaks the assumption behind the bands above.
+ *
+ * Those fractions were measured off flyers, which are read at arm's length or
+ * held in the hand, so the frame and the eye are roughly a fixed distance apart.
+ * A YouTube thumbnail is not: it is chosen at around 210x118 in a sidebar, a
+ * sixth of its authored size, so type sized by the flyer band tops out near 65
+ * units and lands at about 11 real pixels. Legible in the artboard, illegible
+ * where the decision is actually made. The band is raised to match the medium
+ * rather than the geometry.
+ */
+const PRESET_TYPE_BANDS: Partial<Record<string, Partial<Bands>>> = {
+  "yt-thumb": {
+    headline: [0.15, 0.26],
+    subhead: [0.05, 0.075],
+    body: [0.03, 0.042],
+    caption: [0.026, 0.034],
+    floor: 0.026,
+  },
+};
 
 const PHOTO_AREA = [0.3, 0.55] as const;
 
@@ -27,17 +58,18 @@ export type TypeScale = {
 /** Concrete font-size bands in design units. Far more actionable than percentages. */
 export function typeScale(preset: Preset): TypeScale {
   const h = preset.height;
+  const bands = { ...TYPE_BANDS, ...PRESET_TYPE_BANDS[preset.id] };
   const band = ([lo, hi]: readonly [number, number]): [number, number] => [
     Math.round(h * lo),
     Math.round(h * hi),
   ];
 
   return {
-    headline: band(TYPE_BANDS.headline),
-    subhead: band(TYPE_BANDS.subhead),
-    body: band(TYPE_BANDS.body),
-    caption: band(TYPE_BANDS.caption),
-    floor: Math.max(14, Math.round(h * TYPE_BANDS.floor)),
+    headline: band(bands.headline),
+    subhead: band(bands.subhead),
+    body: band(bands.body),
+    caption: band(bands.caption),
+    floor: Math.max(14, Math.round(h * bands.floor)),
   };
 }
 
