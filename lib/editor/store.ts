@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { identityTransform, type BaseBox, type LayerTransform } from "@/lib/editor/transform";
 import type { LayerInfo } from "@/lib/svg/layers";
-import type { TextEdit, TextRun } from "@/lib/text/runs";
+import type { LayoutResult, TextEdit, TextRun } from "@/lib/text/runs";
 import { DEFAULT_PRESET, type PresetId } from "@/lib/layout/presets";
 
 export type EditorLayer = LayerInfo & {
@@ -47,6 +47,8 @@ type EditorState = {
   textEdits: Record<string, TextEdit>;
   /** Every block of copy as the document authored it, before any edit. */
   runs: Record<string, TextRun>;
+  /** What each block actually rendered as, once wrapped and fitted. */
+  layout: Record<string, LayoutResult>;
   /** Run currently open in the inline editor, as layerId#index. */
   editingRun: string | null;
   /**
@@ -59,6 +61,7 @@ type EditorState = {
   setIllustrationStyle: (style: string) => void;
   setTextEdit: (key: string, patch: TextEdit) => void;
   setRuns: (runs: Record<string, TextRun>) => void;
+  setLayout: (layout: Record<string, LayoutResult>) => void;
   setEditingRun: (key: string | null) => void;
 
   setDocument: (
@@ -94,6 +97,7 @@ export const useEditor = create<EditorState>((set, get) => ({
   slotState: {},
   textEdits: {},
   runs: {},
+  layout: {},
   editingRun: null,
 
   setSlotState: (id, state) =>
@@ -107,6 +111,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   },
 
   setRuns: (runs) => set({ runs }),
+
+  setLayout: (layout) => set({ layout }),
 
   setEditingRun: (key) => set({ editingRun: key }),
 
@@ -147,6 +153,7 @@ export const useEditor = create<EditorState>((set, get) => ({
       // over would silently overwrite what the model was just asked to produce.
       textEdits: options?.keepSlots ? get().textEdits : {},
       runs: {},
+      layout: {},
       editingRun: null,
     });
   },
@@ -160,7 +167,37 @@ export const useEditor = create<EditorState>((set, get) => ({
         // A transform carried over from a previous revision is kept as-is: the
         // user put the layer there deliberately and a redraw should not move it.
         // Only a layer that has never been touched adopts the authored position.
-        return { ...layer, baseBox: box, transform: layer.transform ?? identityTransform(box) };
+        if (!layer.transform || !layer.baseBox) {
+          return { ...layer, baseBox: box, transform: layer.transform ?? identityTransform(box) };
+        }
+
+        /**
+         * The geometry changed under a transform that was written against the old
+         * geometry. A transform places the layer's centre, so re-measuring a block
+         * that grew by a line would slide it by half that line: editing copy would
+         * move the text you were editing. Shifting the transform by the same delta
+         * holds the layer exactly where it renders now, whether it sits where it
+         * was authored or where someone dragged it.
+         */
+        const before = identityTransform(layer.baseBox);
+        const after = identityTransform(box);
+        const dx = (after.cx - before.cx) * layer.transform.sx;
+        const dy = (after.cy - before.cy) * layer.transform.sy;
+        if (dx === 0 && dy === 0) return { ...layer, baseBox: box };
+
+        const shift = (transform: LayerTransform) => ({
+          ...transform,
+          cx: transform.cx + dx,
+          cy: transform.cy + dy,
+        });
+
+        return {
+          ...layer,
+          baseBox: box,
+          transform: shift(layer.transform),
+          // Moved with it, or every re-measured layer would read as hand-edited.
+          baseline: layer.baseline ? shift(layer.baseline) : null,
+        };
       }),
     })),
 
@@ -237,7 +274,7 @@ export const useEditor = create<EditorState>((set, get) => ({
     }),
 
   reset: () =>
-    set({ svg: null, layers: [], selection: [], past: [], future: [], textEdits: {}, runs: {}, editingRun: null }),
+    set({ svg: null, layers: [], selection: [], past: [], future: [], textEdits: {}, runs: {}, layout: {}, editingRun: null }),
 }));
 
 function snapshot(state: { layers: EditorLayer[]; textEdits: Record<string, TextEdit> }): Snapshot {
