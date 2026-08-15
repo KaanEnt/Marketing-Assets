@@ -15,6 +15,9 @@ const TYPE_BANDS = {
 } as const;
 
 const PHOTO_AREA = [0.3, 0.55] as const;
+// A thumbnail lives or dies on a large, legible subject at scroll size, not a small
+// inset panel next to copy — so it gets a much bigger allowance.
+const PHOTO_AREA_THUMBNAIL = [0.55, 0.85] as const;
 
 export type TypeScale = {
   headline: [number, number];
@@ -45,6 +48,8 @@ export function houseStyle(preset: Preset): string {
   const scale = typeScale(preset);
   const box = safeBox(preset);
   const photoArea = preset.width * preset.height;
+  const isThumbnail = preset.id === "yt-thumb";
+  const photoRange = isThumbnail ? PHOTO_AREA_THUMBNAIL : PHOTO_AREA;
 
   return `# House style
 
@@ -93,17 +98,34 @@ Permitted families: ${FONT_NAMES.join(", ")}. No other family is allowed.
 
 ## Photography
 
-- Photos are always masked into a shape: rectangle, rounded rectangle, circle, arc, or
+${
+  isThumbnail
+    ? `- The subject is the thumbnail. Let it fill the frame and bleed off two or three
+  edges rather than sitting in a small masked panel — a boxed-in photo next to a
+  headline is what makes a thumbnail read as a slide instead of a thumbnail.
+  A rounded-rect or circle mask is fine for a small secondary inset, never for the
+  main subject.`
+    : `- Photos are always masked into a shape: rectangle, rounded rectangle, circle, arc, or
   blob. Never dropped in raw edge-to-edge, unless it is the background layer and carries
-  a color wash on top of it.
-- A photo occupies ${Math.round(PHOTO_AREA[0] * 100)}-${Math.round(PHOTO_AREA[1] * 100)}% of frame area (about ${Math.round(photoArea * PHOTO_AREA[0]).toLocaleString()} to ${Math.round(photoArea * PHOTO_AREA[1]).toLocaleString()} square units here).
+  a color wash on top of it.`
+}
+- A photo occupies ${Math.round(photoRange[0] * 100)}-${Math.round(photoRange[1] * 100)}% of frame area (about ${Math.round(photoArea * photoRange[0]).toLocaleString()} to ${Math.round(photoArea * photoRange[1]).toLocaleString()} square units here).
 - Apply feColorMatrix for grayscale or duotone when the photo sits under text.
 
 ## Composition
 
-- Prefer a strong left or right alignment axis over centering everything.
+${
+  isThumbnail
+    ? `- No logo lockup, no contact block, no bulleted list, no eyebrow line, no URL. Those
+  are flyer furniture; a thumbnail is one subject and one loud claim, nothing else.
+- Centering the subject, or pushing it hard to one side with the headline stacked on
+  the other, both work. Pick whichever gives the subject the most room.
+- One or two bold graphic accents (an arrow, a circle callout, a burst) aimed at the
+  subject are welcome here even though they'd be clutter on a flyer.`
+    : `- Prefer a strong left or right alignment axis over centering everything.
 - Logo lockup anchors to a top corner. Contact block anchors to the bottom margin.
-- At most two decorative accent shapes. Restraint reads as professional; clutter does not.
+- At most two decorative accent shapes. Restraint reads as professional; clutter does not.`
+}
 - Leave real negative space. A crowded frame is the most common failure mode.
 
 ## Decoration vocabulary
@@ -117,7 +139,15 @@ Draw these in SVG. They are what makes output look designed rather than generate
 - Translucent overlay rectangles that tint what sits beneath
 - Solid highlight bars sitting behind individual words of a headline
 - Concentric arc rings and swooshes framing a circular photo mask
-- feColorMatrix filters for grayscale and duotone
+- feColorMatrix filters for grayscale and duotone${
+    isThumbnail
+      ? `
+- Heavy stroke (4-8 units, usually a dark or white outline) around headline text so it
+  stays legible over a busy photo at small preview size
+- A soft drop shadow (feDropShadow or an offset blurred duplicate) under the headline
+  and under any graphic accent, for the same reason`
+      : ""
+  }
 
 ## Structure
 
