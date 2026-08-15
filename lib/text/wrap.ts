@@ -100,9 +100,30 @@ function breakLine(line: string, width: number, style: TextStyle, measure: Measu
   return pieces;
 }
 
+/**
+ * How far a line's ink drops below its own baseline, as a fraction of the em.
+ * Close enough across the whitelisted faces, and the alternative is loading font
+ * tables to read a number that only decides whether to shrink one step further.
+ */
+const DESCENDER = 0.22;
+
+/**
+ * Vertical room a block occupies below its first baseline.
+ *
+ * Not lines x leading. A block hangs off its first baseline, and that baseline
+ * sits some way down inside the box to leave room for the ascenders of line one.
+ * Measuring the full stack against the full box silently grants the block that
+ * ascender space twice, which is exactly how a headline shrinks to a size that
+ * satisfies the arithmetic and still runs out of the bottom of its panel.
+ */
+export function blockDrop(lines: number, size: number, lineHeight: number): number {
+  return Math.max(0, lines - 1) * size * lineHeight + size * DESCENDER;
+}
+
 export type FitOptions = {
   content: string;
   width: number;
+  /** Room below the first baseline, not the height of the whole box. */
   height: number;
   style: TextStyle;
   lineHeight: number;
@@ -135,7 +156,7 @@ export function fitText(options: FitOptions): FitResult {
 
   const at = (size: number): WrapResult & { size: number; height: number } => {
     const wrapped = wrapText(content, width, { ...style, size }, measure);
-    return { ...wrapped, size, height: wrapped.lines.length * size * lineHeight };
+    return { ...wrapped, size, height: blockDrop(wrapped.lines.length, size, lineHeight) };
   };
 
   const requested = at(style.size);
