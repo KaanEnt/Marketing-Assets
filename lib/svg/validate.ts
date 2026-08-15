@@ -135,13 +135,20 @@ export function validateSvg(source: string, preset: Preset): ValidationResult {
   }
 
   for (const element of svg.querySelectorAll("[font-family]")) {
-    const family = (element.getAttribute("font-family") || "").replace(/["']/g, "").trim();
+    // "Source Serif 4, serif" is a legal CSS stack, so judge the first family only.
+    // Matching the whole attribute rejects valid output and costs a correction round.
+    const family = primaryFamily(element.getAttribute("font-family") || "");
     if (family && !FONT_NAMES.includes(family)) {
       add("bad-font", `font-family "${family}" is not in the permitted set: ${FONT_NAMES.join(", ")}.`);
     }
   }
 
   return { ok: violations.length === 0, violations, groupIds };
+}
+
+/** First family in a CSS font stack, unquoted. */
+export function primaryFamily(value: string): string {
+  return (value.split(",")[0] ?? "").replace(/["']/g, "").trim();
 }
 
 function isSafeHref(value: string): boolean {
