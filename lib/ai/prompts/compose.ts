@@ -87,7 +87,7 @@ export function composePrompt(options: ComposeOptions): string {
     "",
     brandKitPrompt(brandKit),
     "",
-    templateSection(templateId),
+    templateSection(templateId, preset),
   ];
 
   if (currentLayerIds?.length) {
@@ -97,7 +97,7 @@ export function composePrompt(options: ComposeOptions): string {
   return sections.filter(Boolean).join("\n");
 }
 
-function templateSection(templateId?: string): string {
+function templateSection(templateId: string | undefined, preset: Preset): string {
   if (templateId && isTemplateId(templateId)) {
     return [
       "## Skeleton",
@@ -109,6 +109,21 @@ function templateSection(templateId?: string): string {
       "```svg",
       templateSvg(templateId as TemplateId),
       "```",
+    ].join("\n");
+  }
+
+  // The catalog below is four flyer skeletons: every one leans on a logo lockup and a
+  // contact block. A thumbnail has neither, so offering them steers the model toward a
+  // title-slide shape no matter which it picks. Skip the catalog for this preset instead
+  // of trying to make a flyer skeleton pretend otherwise.
+  if (preset.id === "yt-thumb") {
+    return [
+      "## Skeleton",
+      "",
+      "No catalog skeleton applies here — they are flyer layouts built around a logo",
+      "lockup and a contact block, and a thumbnail carries neither. Compose freely: one",
+      "dominant photo or illustration subject filling most of the frame, one short loud",
+      "headline over it. See the thumbnail rules in House style above.",
     ].join("\n");
   }
 
