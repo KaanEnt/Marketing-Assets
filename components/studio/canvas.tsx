@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { Canvas as FabricCanvas, Rect as FabricRect } from "fabric";
 
 import { useEditor } from "@/lib/editor/store";
+import { useSlotFilling } from "@/components/studio/use-slot-filling";
 import { frameTargets, snapAxis, type SnapGuide, type SnapTarget } from "@/lib/editor/snapping";
 import {
   identityTransform,
@@ -64,6 +65,27 @@ export function Canvas({ busy, preset }: CanvasProps) {
     observer.observe(element);
     return () => observer.disconnect();
   }, [preset.width, preset.height]);
+
+  /**
+   * Inject the document imperatively, exactly once per document.
+   *
+   * Rendering it through dangerouslySetInnerHTML makes React the owner of these
+   * nodes, and it rewrites them on re-render. That silently destroyed everything
+   * written into the document afterwards: resolved icon glyphs and generated
+   * images both vanished the first time any store update landed. React owns the
+   * host element; the contents are ours.
+   */
+  useEffect(() => {
+    const host = svgHost.current;
+    if (!host) return;
+
+    host.innerHTML = svg
+      ? svg.replace("<svg", `<svg style="width:100%;height:100%;display:block"`)
+      : "";
+  }, [svg]);
+
+  // Resolve icon glyphs and generate art for empty photo/illustration slots.
+  useSlotFilling(svgHost, svg);
 
   // Measure authored geometry once the document is in the DOM. getBBox only
   // works on a rendered node, so this cannot be done at parse time.
@@ -372,14 +394,11 @@ export function Canvas({ busy, preset }: CanvasProps) {
 
       {svg && (
         <div className="relative" style={{ width: boardWidth, height: boardHeight }}>
+          {/* Contents injected imperatively above; React must not manage them. */}
           <div
             ref={svgHost}
             className="absolute inset-0 bg-white shadow-[0_18px_50px_-12px_rgba(11,11,15,0.35)]"
             style={{ opacity: busy ? 0.5 : 1 }}
-            dangerouslySetInnerHTML={{
-              // Sanitized in lib/svg/layers.ts before it reached this component.
-              __html: svg.replace("<svg", `<svg style="width:100%;height:100%;display:block"`),
-            }}
           />
 
           {guides.map((guide, index) => (
