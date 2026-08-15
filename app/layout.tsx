@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
-import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
+import { fontVariables } from "./fonts";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const interTight = Inter_Tight({ subsets: ["latin"], variable: "--font-inter-tight" });
-const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
-
 export const metadata: Metadata = {
-  title: "Marketing Assets",
-  description: "Marketing assets that stay editable.",
+  title: "Marketing assets that stay editable",
+  description:
+    "Describe the asset. Get real vector layers you can still edit, in every format.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${interTight.variable} ${jetbrainsMono.variable}`}>
-        {children}
-      </body>
+      <body className={fontVariables}>{children}</body>
     </html>
   );
 }

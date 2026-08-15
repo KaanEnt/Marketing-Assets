@@ -1,68 +1,44 @@
-import { DEFAULT_MODEL, getModelOptions } from "@/lib/ai/models";
+import { MeshGradient } from "@/components/mesh-gradient";
+import { PromptBox } from "@/components/prompt-box";
+import { Wordmark } from "@/components/wordmark";
 
-export const dynamic = "force-dynamic";
-
-export default async function Home() {
-  const models = await getModelOptions();
-  const cursorReady = Boolean(process.env.CURSOR_API_KEY);
-  const geminiReady = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
-
+export default function Home() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-10 px-8 py-16">
-      <header className="space-y-3">
-        <p className="font-mono text-xs uppercase tracking-[0.18em] text-graphite">Phase 1</p>
-        <h1 className="font-display text-5xl font-extrabold tracking-tight">Marketing Assets</h1>
-        <p className="text-lg text-graphite">
-          Marketing assets that stay editable. Scaffold is up; the studio lands in later phases.
-        </p>
+    <main className="relative flex min-h-screen flex-col overflow-hidden">
+      <MeshGradient />
+
+      <header className="relative z-10 flex items-center justify-between px-8 py-6">
+        <Wordmark />
+        <a
+          href="https://github.com/KaanEnt/Marketing-Assets"
+          className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-paper transition hover:bg-signal"
+        >
+          Source
+        </a>
       </header>
 
-      <section className="space-y-3">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-[0.12em] text-graphite">
-          Credential path
-        </h2>
-        <ul className="divide-y divide-mist rounded-xl border border-mist bg-white">
-          <StatusRow label="Cursor SDK (CURSOR_API_KEY)" ready={cursorReady} />
-          <StatusRow label="Gemini (GEMINI_API_KEY)" ready={geminiReady} />
-        </ul>
-        <p className="text-sm text-graphite">
-          Both resolve through the macOS Keychain broker. If either reads &ldquo;missing&rdquo;, the
-          dev server was started without the nested <code className="font-mono">secret-env</code>{" "}
-          wrapper.
-        </p>
-      </section>
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-28 text-center">
+        <h1 className="max-w-3xl font-display text-[clamp(2.6rem,6.4vw,4.6rem)] font-extrabold leading-[1.02] tracking-[-0.035em]">
+          Design something
+          <br />
+          that stays editable
+        </h1>
 
-      <section className="space-y-3">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-[0.12em] text-graphite">
-          Live model catalog
-        </h2>
-        <p className="text-sm text-graphite">
-          Default: <code className="font-mono text-ink">{DEFAULT_MODEL}</code>
+        <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-graphite">
+          Describe the asset. Get back real vector layers you can still edit, not a
+          flat image you have to redo.
         </p>
-        <ul className="grid grid-cols-2 gap-2">
-          {models.slice(0, 12).map((model) => (
-            <li
-              key={model.id}
-              className="truncate rounded-lg border border-mist bg-white px-3 py-2 font-mono text-xs text-graphite"
-            >
-              {model.id}
-            </li>
-          ))}
-        </ul>
-      </section>
+
+        <div className="mt-10 flex w-full justify-center">
+          <PromptBox />
+        </div>
+      </div>
+
+      <footer className="relative z-10 px-8 pb-7">
+        <p className="text-center text-[13px] text-ink/45">
+          Vector first. Every layer independent. One design, every format.
+        </p>
+      </footer>
     </main>
-  );
-}
-
-function StatusRow({ label, ready }: { label: string; ready: boolean }) {
-  return (
-    <li className="flex items-center justify-between px-4 py-3">
-      <span className="text-sm">{label}</span>
-      <span
-        className={`font-mono text-xs font-medium ${ready ? "text-vector" : "text-magenta"}`}
-      >
-        {ready ? "resolved" : "missing"}
-      </span>
-    </li>
   );
 }

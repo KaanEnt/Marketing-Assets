@@ -27,3 +27,47 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
+
+/*
+ * next/font rewrites each family to a hashed name, so a generated document asking
+ * for font-family="Archivo" would match nothing and fall back to a system face.
+ * font-family on an SVG element is a presentation attribute, which loses to any
+ * real CSS rule, so mapping the attribute back onto the loaded variable restores
+ * the intended typeface without touching the document.
+ */
+[font-family="Inter"] { font-family: var(--font-inter); }
+[font-family="Inter Tight"] { font-family: var(--font-inter-tight); }
+[font-family="Archivo"] { font-family: var(--font-archivo); }
+[font-family="Manrope"] { font-family: var(--font-manrope); }
+[font-family="Poppins"] { font-family: var(--font-poppins); }
+[font-family="Montserrat"] { font-family: var(--font-montserrat); }
+[font-family="Roboto"] { font-family: var(--font-roboto); }
+[font-family="Oswald"] { font-family: var(--font-oswald); }
+[font-family="Space Grotesk"] { font-family: var(--font-space-grotesk); }
+[font-family="DM Sans"] { font-family: var(--font-dm-sans); }
+[font-family="Playfair Display"] { font-family: var(--font-playfair-display); }
+[font-family="Source Serif 4"] { font-family: var(--font-source-serif-4); }
+[font-family="JetBrains Mono"] { font-family: var(--font-jetbrains-mono); }
+
+@keyframes drift-a {
+  0%, 100% { transform: translate3d(-6%, -4%, 0) scale(1.05); }
+  50% { transform: translate3d(8%, 6%, 0) scale(1.22); }
+}
+
+@keyframes drift-b {
+  0%, 100% { transform: translate3d(10%, 8%, 0) scale(1.18); }
+  50% { transform: translate3d(-8%, -6%, 0) scale(1); }
+}
+
+@keyframes drift-c {
+  0%, 100% { transform: translate3d(0, 6%, 0) scale(1); }
+  50% { transform: translate3d(-10%, -8%, 0) scale(1.25); }
+}
+
+.bloom-a { animation: drift-a 26s ease-in-out infinite; }
+.bloom-b { animation: drift-b 32s ease-in-out infinite; }
+.bloom-c { animation: drift-c 38s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bloom-a, .bloom-b, .bloom-c { animation: none; }
+}
