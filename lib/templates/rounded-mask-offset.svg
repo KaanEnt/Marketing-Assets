@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 1100" data-preset="us-letter" data-template="rounded-mask-offset">
+  <defs>
+    <clipPath id="tpl-photo-clip">
+      <path d="M-12 -12 H432 a72 72 0 0 1 -72 72 V620 a72 72 0 0 1 -72 72 H-12 Z"/>
+    </clipPath>
+  </defs>
+
+  <g id="bg-wash" data-h="stretch" data-v="stretch">
+    <rect x="-12" y="-12" width="874" height="1124" fill="#F7F7F4"/>
+  </g>
+
+  <g id="photo-outline" data-h="left" data-v="top">
+    <path d="M-12 -12 H492 a72 72 0 0 0 -72 72 V664 a72 72 0 0 1 -72 72 H-12 Z" fill="none" stroke="#111111" stroke-width="5"/>
+  </g>
+
+  <g id="photo-slot" data-h="left" data-v="top" data-slot="image">
+    <path d="M-12 -12 H444 a72 72 0 0 0 -72 72 V616 a72 72 0 0 1 -72 72 H-12 Z" fill="#3F4A46"/>
+  </g>
+
+  <g id="panel-outline" data-h="right" data-v="center">
+    <rect x="546" y="272" width="316" height="382" rx="56" fill="none" stroke="#A8A32B" stroke-width="4"/>
+  </g>
+
+  <g id="panel" data-h="right" data-v="center">
+    <rect x="574" y="292" width="288" height="342" rx="48" fill="#A8A32B"/>
+  </g>
+
+  <g id="panel-text" data-h="right" data-v="center" data-fit="shrink" data-box="606 330 232 266">
+    <text x="606" y="378" font-family="Roboto" font-size="36" font-weight="700" fill="#FFFFFF"><tspan x="606" dy="0">VARIETY OF</tspan><tspan x="606" dy="64">CAR</tspan><tspan x="606" dy="64">INSURANCE</tspan><tspan x="606" dy="64">SERVICES</tspan></text>
+  </g>
+
+  <g id="logo-lockup" data-h="right" data-v="top" data-box="672 56 128 124">
+    <path d="M700 140 L742 60 L768 108 L742 108 L728 140 Z" fill="#A8A32B"/>
+    <path d="M752 60 L794 140 L764 140 L740 96 Z" fill="#B8BAB6"/>
+    <text x="748" y="172" text-anchor="middle" font-family="Roboto" font-size="19" font-weight="700" fill="#111111">Opt Insurance</text>
+  </g>
+
+  <g id="headline" data-h="left" data-v="bottom" data-fit="shrink" data-box="56 800 640 100">
+    <text x="56" y="878" font-family="Roboto" font-size="82" font-weight="700" letter-spacing="-1.4" fill="#A8A32B">CAR INSURANCE</text>
+  </g>
+
+  <g id="contact" data-h="left" data-v="bottom" data-box="56 926 420 112">
+    <text x="56" y="952" font-family="Roboto" font-size="22" font-weight="700" fill="#111111"><tspan x="56" dy="0">222 555 7777</tspan><tspan x="56" dy="38">optinsurance.com</tspan><tspan x="56" dy="38">facebook/optinsurance</tspan></text>
+  </g>
+</svg>

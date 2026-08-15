@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 1100" data-preset="us-letter" data-template="elegant-circle-rings">
+  <defs>
+    <clipPath id="tpl-photo-clip-a"><circle cx="700" cy="112" r="248"/></clipPath>
+    <clipPath id="tpl-photo-clip-b"><circle cx="164" cy="700" r="228"/></clipPath>
+    <filter id="tpl-grayscale" x="0%" y="0%" width="100%" height="100%">
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+
+  <g id="bg-wash" data-h="stretch" data-v="stretch">
+    <rect x="-12" y="-12" width="874" height="1124" fill="#F6F8F8"/>
+  </g>
+
+  <g id="rings" data-h="scale" data-v="scale" fill="none">
+    <circle cx="700" cy="112" r="272" stroke="#2AA8A0" stroke-width="7" opacity="0.85"/>
+    <circle cx="700" cy="112" r="296" stroke="#2AA8A0" stroke-width="3" opacity="0.4"/>
+    <circle cx="164" cy="700" r="252" stroke="#2AA8A0" stroke-width="7" opacity="0.85"/>
+    <circle cx="164" cy="700" r="276" stroke="#2AA8A0" stroke-width="3" opacity="0.4"/>
+  </g>
+
+  <g id="photo-slot" data-h="right" data-v="top" data-slot="image">
+    <circle cx="700" cy="112" r="248" fill="#D6DEDE"/>
+  </g>
+
+  <g id="photo-slot-secondary" data-h="left" data-v="center" data-slot="image">
+    <circle cx="164" cy="700" r="228" fill="#D6DEDE"/>
+  </g>
+
+  <g id="logo-lockup" data-h="left" data-v="top" data-box="56 60 240 108">
+    <circle cx="86" cy="90" r="28" fill="#2AA8A0"/>
+    <rect x="76" y="80" width="20" height="20" rx="5" fill="#F6F8F8"/>
+    <text x="56" y="152" font-family="Montserrat" font-size="24" font-weight="700" letter-spacing="2" fill="#111111">MARSPOINT</text>
+  </g>
+
+  <g id="headline" data-h="left" data-v="top" data-fit="shrink" data-box="56 200 400 200">
+    <text x="56" y="262" font-family="Montserrat" font-size="60" font-weight="700" letter-spacing="-1.2" fill="#2AA8A0"><tspan x="56" dy="0">We strive hard</tspan><tspan x="56" dy="70">to give you</tspan><tspan x="56" dy="70">the best</tspan></text>
+  </g>
+
+  <g id="mission-block" data-h="right" data-v="center" data-box="440 470 356 300">
+    <text x="440" y="492" font-family="Montserrat" font-size="24" font-weight="700" fill="#2AA8A0">Our Mission / Vision</text>
+    <text x="440" y="536" font-family="Roboto" font-size="19" font-weight="400" fill="#3A3F3F"><tspan x="440" dy="0">Marspoint aims to uplift clients&#8217; wellbeing by</tspan><tspan x="440" dy="28">providing complete, affordable, responsive, and</tspan><tspan x="440" dy="28">excellent quality insurance services, so they are</tspan><tspan x="440" dy="28">prepared for an industrialized market.</tspan></text>
+    <text x="440" y="672" font-family="Roboto" font-size="19" font-weight="400" fill="#3A3F3F"><tspan x="440" dy="0">&#8226; Savings and Investments</tspan><tspan x="440" dy="30">&#8226; Educational Plans</tspan><tspan x="440" dy="30">&#8226; Healthcare Coverage</tspan><tspan x="440" dy="30">&#8226; Income Protection</tspan></text>
+  </g>
+
+  <g id="contact" data-h="right" data-v="bottom" data-box="440 848 356 190">
+    <text x="440" y="870" font-family="Montserrat" font-size="24" font-weight="700" fill="#2AA8A0">Get In Touch</text>
+    <g data-icon="map-pin" fill="#2AA8A0" transform="translate(440 900) scale(0.9)"/>
+    <text x="474" y="918" font-family="Roboto" font-size="19" font-weight="400" fill="#3A3F3F">2139 Crescent Street, Campton, KY</text>
+    <g data-icon="phone" fill="#2AA8A0" transform="translate(440 942) scale(0.9)"/>
+    <text x="474" y="960" font-family="Roboto" font-size="19" font-weight="400" fill="#3A3F3F">+1 270-232-2131</text>
+    <g data-icon="mail" fill="#2AA8A0" transform="translate(440 984) scale(0.9)"/>
+    <text x="474" y="1002" font-family="Roboto" font-size="19" font-weight="400" fill="#3A3F3F">marspoint@gmail.com</text>
+  </g>
+</svg>

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 1100" data-preset="us-letter" data-template="corporate-photo-panel">
+  <defs>
+    <pattern id="tpl-vlines" width="17" height="1124" patternUnits="userSpaceOnUse">
+      <rect x="0" y="-12" width="2" height="1124" fill="#FFFFFF" opacity="0.8"/>
+    </pattern>
+    <clipPath id="tpl-photo-clip">
+      <rect x="74" y="227" width="702" height="712"/>
+    </clipPath>
+    <filter id="tpl-duotone" x="0%" y="0%" width="100%" height="100%">
+      <feColorMatrix type="matrix" values="0.22 0.38 0.16 0 0.04  0.24 0.46 0.28 0 0.09  0.30 0.52 0.44 0 0.14  0 0 0 1 0"/>
+    </filter>
+  </defs>
+
+  <g id="bg-wash" data-h="stretch" data-v="stretch">
+    <rect x="-12" y="-12" width="874" height="1124" fill="#C8ECF2"/>
+  </g>
+
+  <g id="accent-lines" data-h="center" data-v="stretch" opacity="0.55">
+    <rect x="316" y="-12" width="306" height="1124" fill="url(#tpl-vlines)"/>
+  </g>
+
+  <g id="accent-blocks" data-h="scale" data-v="scale">
+    <rect x="74" y="28" width="104" height="44" fill="#FFFFFF" opacity="0.34"/>
+    <rect x="466" y="392" width="92" height="40" fill="#FFFFFF" opacity="0.28"/>
+    <rect x="330" y="964" width="86" height="38" fill="#FFFFFF" opacity="0.28"/>
+  </g>
+
+  <g id="photo-slot" data-h="stretch" data-v="center" data-slot="image">
+    <rect x="74" y="227" width="702" height="712" fill="#9FD9F0"/>
+  </g>
+
+  <g id="eyebrow" data-h="left" data-v="top" data-box="74 82 420 34">
+    <text x="74" y="106" font-family="Archivo" font-size="26" font-weight="600" fill="#111111">We insure quality.</text>
+  </g>
+
+  <g id="headline" data-h="left" data-v="top" data-fit="shrink" data-box="74 130 470 190">
+    <text x="74" y="196" font-family="Archivo" font-size="78" font-weight="800" letter-spacing="-1.6" fill="#111111"><tspan x="74" dy="0">Insurance</tspan><tspan x="74" dy="88">Agency</tspan></text>
+  </g>
+
+  <g id="cta" data-h="right" data-v="top" data-box="540 244 236 84">
+    <text x="540" y="272" font-family="Archivo" font-size="30" font-weight="700" fill="#111111"><tspan x="540" dy="0">Lets Get Started</tspan><tspan x="540" dy="38">With a Quote!</tspan></text>
+  </g>
+
+  <g id="service-list" data-h="left" data-v="center" data-box="140 358 320 236">
+    <text x="140" y="388" font-family="Archivo" font-size="33" font-weight="600" fill="#111111"><tspan x="140" dy="0">&#8226; Personal</tspan><tspan x="140" dy="46">&#8226; Business</tspan><tspan x="140" dy="46">&#8226; Life &amp; Health</tspan><tspan x="140" dy="46">&#8226; Auto</tspan><tspan x="140" dy="46">&#8226; Home</tspan></text>
+  </g>
+
+  <g id="logo-lockup" data-h="right" data-v="top" data-box="672 58 104 106">
+    <path d="M702 60 h44 v36 q0 21 -22 30 q-22 -9 -22 -30 z" fill="#111111"/>
+    <rect x="718" y="74" width="12" height="24" rx="3" fill="#C8ECF2"/>
+    <text x="724" y="146" text-anchor="middle" font-family="Archivo" font-size="20" font-weight="600" fill="#111111"><tspan x="724" dy="0">Insurance</tspan><tspan x="724" dy="24">Services</tspan></text>
+  </g>
+
+  <g id="contact" data-h="stretch" data-v="bottom" data-box="266 950 510 76">
+    <text x="266" y="972" font-family="Archivo" font-size="18" font-weight="400" fill="#111111"><tspan x="266" dy="0">Visit us at: 89 Carriage</tspan><tspan x="266" dy="24">Street East Orange, NJ 07017</tspan><tspan x="266" dy="24">Mail: info@insuranceservices.com</tspan></text>
+    <text x="558" y="972" font-family="Archivo" font-size="18" font-weight="400" fill="#111111"><tspan x="558" dy="0">For more info</tspan><tspan x="558" dy="24">call: 804-561-1519</tspan><tspan x="558" dy="24">Website: insuranceservices.com</tspan></text>
+  </g>
+</svg>
