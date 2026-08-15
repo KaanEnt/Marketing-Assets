@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" data-preset="ig-square" data-template="ig-product-drop">
+  <g id="bg-field" data-h="stretch" data-v="stretch">
+    <rect x="-12" y="-12" width="1104" height="1104" fill="#F2EDE6"/>
+  </g>
+
+  <g id="photo-slot" data-h="scale" data-v="scale" data-slot="image" data-prompt="single product photographed on a plain seamless backdrop, soft studio light, centred, generous empty space around it">
+    <rect x="170" y="176" width="740" height="560" rx="44" fill="#DED6CB"/>
+  </g>
+
+  <g id="offer-badge" data-h="right" data-v="top" data-fit="shrink" data-box="832 124 176 176">
+    <circle cx="920" cy="212" r="88" fill="#E04E39"/>
+    <text x="920" y="226" text-anchor="middle" font-family="Poppins" font-size="36" font-weight="700" letter-spacing="1" fill="#FFFFFF">NEW</text>
+  </g>
+
+  <g id="brand-mark" data-h="left" data-v="top" data-box="64 84 500 56">
+    <text x="64" y="124" font-family="Poppins" font-size="26" font-weight="600" letter-spacing="5" fill="#1A1A1E">NORTHWIND</text>
+  </g>
+
+  <g id="product-name" data-h="left" data-v="bottom" data-fit="shrink" data-box="64 756 952 176">
+    <text x="64" y="828" font-family="Poppins" font-size="72" font-weight="700" letter-spacing="-2" fill="#1A1A1E"><tspan x="64" dy="0">Alpine Wool Throw</tspan><tspan x="64" dy="76">Limited run</tspan></text>
+  </g>
+
+  <g id="price-line" data-h="left" data-v="bottom" data-box="64 952 420 72">
+    <text x="64" y="1002" font-family="DM Sans" font-size="40" font-weight="700" fill="#E04E39">$148</text>
+    <text x="180" y="1002" font-family="DM Sans" font-size="28" font-weight="400" fill="#1A1A1E" opacity="0.5">$195</text>
+    <rect x="178" y="991" width="62" height="3" fill="#1A1A1E" opacity="0.5"/>
+  </g>
+
+  <g id="cta-pill" data-h="right" data-v="bottom" data-fit="shrink" data-box="736 944 280 80">
+    <rect x="736" y="944" width="280" height="80" rx="40" fill="#1A1A1E"/>
+    <text x="876" y="995" text-anchor="middle" font-family="DM Sans" font-size="30" font-weight="700" fill="#F2EDE6">Shop now</text>
+  </g>
+</svg>

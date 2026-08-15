@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" data-preset="ig-story" data-template="ig-story-announce">
+  <defs>
+    <linearGradient id="story-ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B2A6B"/>
+      <stop offset="1" stop-color="#3D2A7A"/>
+    </linearGradient>
+  </defs>
+
+  <g id="bg-wash" data-h="stretch" data-v="stretch">
+    <rect x="-12" y="-12" width="1104" height="1944" fill="url(#story-ground)"/>
+  </g>
+
+  <g id="accent-rings" data-h="scale" data-v="scale">
+    <circle cx="540" cy="690" r="330" fill="none" stroke="#F5C542" stroke-width="6" opacity="0.85"/>
+    <circle cx="540" cy="690" r="380" fill="none" stroke="#F5C542" stroke-width="3" opacity="0.3"/>
+  </g>
+
+  <g id="hero-art" data-h="center" data-v="center" data-slot="illustration" data-prompt="flat vector illustration of a rocket lifting off through soft clouds, three-quarter view, no background">
+    <rect x="235" y="480" width="610" height="440" fill="none"/>
+  </g>
+
+  <g id="eyebrow" data-h="center" data-v="top" data-box="64 296 952 52">
+    <text x="540" y="330" text-anchor="middle" font-family="Manrope" font-size="30" font-weight="700" letter-spacing="6" fill="#F5C542">LAUNCHING FRIDAY</text>
+  </g>
+
+  <g id="headline" data-h="center" data-v="center" data-fit="shrink" data-box="64 1010 952 380">
+    <text x="540" y="1110" text-anchor="middle" font-family="Manrope" font-size="112" font-weight="800" letter-spacing="-3" fill="#FFFFFF"><tspan x="540" dy="0">The new</tspan><tspan x="540" dy="122">way to</tspan><tspan x="540" dy="122">ship work.</tspan></text>
+  </g>
+
+  <g id="subhead" data-h="center" data-v="center" data-box="64 1400 952 70">
+    <text x="540" y="1448" text-anchor="middle" font-family="Inter" font-size="46" font-weight="400" fill="#FFFFFF" opacity="0.75">Early access opens at 9am.</text>
+  </g>
+
+  <g id="cta-pill" data-h="center" data-v="bottom" data-fit="shrink" data-box="330 1500 420 96">
+    <rect x="330" y="1500" width="420" height="96" rx="48" fill="#F5C542"/>
+    <text x="540" y="1562" text-anchor="middle" font-family="Manrope" font-size="46" font-weight="700" fill="#1B2A6B">Tap to join</text>
+  </g>
+</svg>

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" data-preset="ig-portrait" data-template="ig-carousel-cover">
+  <defs>
+    <linearGradient id="carousel-scrim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0E1116" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0E1116" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+
+  <g id="bg-wash" data-h="stretch" data-v="stretch">
+    <rect x="-12" y="-12" width="1104" height="1374" fill="#FAF7F2"/>
+  </g>
+
+  <g id="photo-slot" data-h="stretch" data-v="bottom" data-slot="image" data-prompt="candid photograph of a small team working together at a desk, warm natural light, shallow depth of field">
+    <rect x="0" y="700" width="1080" height="698" rx="48" fill="#8E8880"/>
+  </g>
+
+  <g id="scrim" data-h="stretch" data-v="bottom">
+    <rect x="0" y="900" width="1080" height="450" fill="url(#carousel-scrim)"/>
+  </g>
+
+  <g id="count-badge" data-h="right" data-v="top" data-fit="shrink" data-box="856 96 160 56">
+    <rect x="856" y="96" width="160" height="56" rx="28" fill="#0E1116"/>
+    <text x="936" y="133" text-anchor="middle" font-family="Manrope" font-size="26" font-weight="700" fill="#FAF7F2">1 / 7</text>
+  </g>
+
+  <g id="headline" data-h="left" data-v="top" data-fit="shrink" data-box="64 170 952 350">
+    <text x="64" y="268" font-family="Manrope" font-size="104" font-weight="800" letter-spacing="-3" fill="#0E1116"><tspan x="64" dy="0">Seven ways</tspan><tspan x="64" dy="112">to ship</tspan><tspan x="64" dy="112">faster.</tspan></text>
+  </g>
+
+  <g id="subhead" data-h="left" data-v="top" data-box="64 530 952 60">
+    <text x="64" y="566" font-family="Inter" font-size="36" font-weight="500" fill="#4A4E5A">A practical guide for small teams.</text>
+  </g>
+
+  <g id="swipe-cue" data-h="left" data-v="bottom" data-box="64 1170 400 80">
+    <text x="64" y="1214" font-family="Manrope" font-size="26" font-weight="700" letter-spacing="4" fill="#FAF7F2">SWIPE</text>
+    <path d="M198 1192 L214 1206 L198 1220" fill="none" stroke="#F5C542" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M228 1192 L244 1206 L228 1220" fill="none" stroke="#F5C542" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <g id="brand-mark" data-h="right" data-v="bottom" data-box="616 1170 400 80">
+    <text x="1016" y="1214" text-anchor="end" font-family="Inter" font-size="28" font-weight="600" fill="#FAF7F2" opacity="0.8">@northwind</text>
+  </g>
+</svg>
