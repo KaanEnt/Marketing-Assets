@@ -1,6 +1,7 @@
 import { parseHTML } from "linkedom";
 
 import { FONT_NAMES } from "@/lib/text/fonts";
+import { ICON_NAMES, isIconName } from "@/lib/svg/icons";
 import type { Preset } from "@/lib/layout/presets";
 
 export const H_CONSTRAINTS = ["left", "right", "center", "scale", "stretch"] as const;
@@ -132,6 +133,29 @@ export function validateSvg(source: string, preset: Preset): ValidationResult {
   }
   if (topLevel.length > MAX_GROUPS) {
     add("too-many-groups", `${topLevel.length} top-level groups. Keep it under ${MAX_GROUPS} so the layer panel stays usable.`);
+  }
+
+  for (const element of svg.querySelectorAll("[data-icon]")) {
+    const name = element.getAttribute("data-icon") ?? "";
+    if (!isIconName(name)) {
+      add("bad-icon", `data-icon "${name}" is not available. Use one of: ${ICON_NAMES.join(", ")}.`);
+    }
+  }
+
+  for (const element of svg.querySelectorAll("[data-slot]")) {
+    const kind = element.getAttribute("data-slot");
+    if (kind !== "image" && kind !== "illustration") {
+      add("bad-slot", `data-slot "${kind}" is invalid. Use "image" or "illustration".`);
+      continue;
+    }
+    if (!element.getAttribute("data-prompt")?.trim()) {
+      const id = element.getAttribute("id") ?? "a slot";
+      add(
+        "missing-slot-prompt",
+        `Layer "${id}" is a ${kind} slot with no data-prompt, so nothing can be generated for it.`,
+        element.getAttribute("id") ?? undefined,
+      );
+    }
   }
 
   for (const element of svg.querySelectorAll("[font-family]")) {
