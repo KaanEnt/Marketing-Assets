@@ -20,7 +20,17 @@ export type LayerInfo = {
 export function sanitizeSvg(source: string): string {
   return DOMPurify.sanitize(source, {
     USE_PROFILES: { svg: true, svgFilters: true },
-    ADD_ATTR: ["data-h", "data-v", "data-box", "data-slot", "data-prompt", "data-fit", "data-icon", "data-preset"],
+    ADD_ATTR: [
+      "data-h",
+      "data-v",
+      "data-box",
+      "data-slot",
+      "data-prompt",
+      "data-asset",
+      "data-fit",
+      "data-icon",
+      "data-preset",
+    ],
     FORBID_TAGS: ["script", "foreignObject", "style", "iframe"],
   });
 }
