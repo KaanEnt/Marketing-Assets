@@ -104,28 +104,45 @@ export type EnhanceOptions = {
   signal?: AbortSignal;
 };
 
+/**
+ * One retry, because the failure it covers is stochastic rather than deterministic.
+ *
+ * Editing a photograph of real people intermittently comes back text-only or blocked,
+ * and the identical request then succeeds. Failing the command on the first empty
+ * response makes the feature look broken when it is merely flaky.
+ */
+const ATTEMPTS = 2;
+
 export async function enhanceImage(options: EnhanceOptions): Promise<GeneratedImage> {
   const aspectRatio = MODE_ASPECT[options.mode];
+  let lastReason = "no reason reported";
 
-  const response = await getClient().models.generateContent({
-    model: IMAGE_MODEL,
-    contents: [
-      {
-        role: "user",
-        parts: [inlinePart(options.dataUri), { text: enhancePrompt(options.mode, options.instruction) }],
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
+    const response = await getClient().models.generateContent({
+      model: IMAGE_MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [inlinePart(options.dataUri), { text: enhancePrompt(options.mode, options.instruction) }],
+        },
+      ],
+      config: {
+        responseModalities: ["IMAGE"],
+        ...(aspectRatio ? { imageConfig: { aspectRatio, imageSize: "2K" } } : {}),
+        ...(options.signal ? { abortSignal: options.signal } : {}),
       },
-    ],
-    config: {
-      responseModalities: ["IMAGE"],
-      ...(aspectRatio ? { imageConfig: { aspectRatio, imageSize: "2K" } } : {}),
-      ...(options.signal ? { abortSignal: options.signal } : {}),
-    },
-  });
+    });
 
-  const image = firstInlineImage(response);
-  if (!image) {
-    throw new Error(`The model returned no image (${noImageReason(response)}).`);
+    const image = firstInlineImage(response);
+    if (image) return image;
+
+    lastReason = noImageReason(response);
+    console.warn(`[enhance] ${options.mode} attempt ${attempt}/${ATTEMPTS} returned no image (${lastReason})`);
+
+    if (options.signal?.aborted) break;
   }
 
-  return image;
+  throw new Error(
+    `The model returned no image after ${ATTEMPTS} attempts (${lastReason}). Try again, or a different mode.`,
+  );
 }
