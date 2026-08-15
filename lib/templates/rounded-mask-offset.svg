@@ -13,7 +13,7 @@
     <path d="M-12 -12 H492 a72 72 0 0 0 -72 72 V664 a72 72 0 0 1 -72 72 H-12 Z" fill="none" stroke="#111111" stroke-width="5"/>
   </g>
 
-  <g id="photo-slot" data-h="left" data-v="top" data-slot="image">
+  <g id="photo-slot" data-h="left" data-v="top" data-slot="image" data-prompt="close-up product or service detail, shallow depth of field, muted background">
     <path d="M-12 -12 H444 a72 72 0 0 0 -72 72 V616 a72 72 0 0 1 -72 72 H-12 Z" fill="#3F4A46"/>
   </g>
 

@@ -25,7 +25,7 @@
     <rect x="330" y="964" width="86" height="38" fill="#FFFFFF" opacity="0.28"/>
   </g>
 
-  <g id="photo-slot" data-h="stretch" data-v="center" data-slot="image">
+  <g id="photo-slot" data-h="stretch" data-v="center" data-slot="image" data-prompt="wide city skyline in clear daylight, corporate and reassuring">
     <rect x="74" y="227" width="702" height="712" fill="#9FD9F0"/>
   </g>
 

@@ -19,7 +19,7 @@
     <g clip-path="url(#tpl-disc-b)"><rect x="44" y="792" width="176" height="176" fill="url(#tpl-stripes)"/></g>
   </g>
 
-  <g id="photo-slot" data-h="right" data-v="bottom" data-slot="image">
+  <g id="photo-slot" data-h="right" data-v="bottom" data-slot="image" data-prompt="lifestyle photograph of a person in the subject setting, natural light">
     <path d="M862 470 a392 392 0 0 0 -392 392 v250 h392 Z" fill="#E8ECEE"/>
   </g>
 

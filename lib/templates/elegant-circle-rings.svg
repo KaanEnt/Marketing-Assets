@@ -18,11 +18,11 @@
     <circle cx="164" cy="700" r="276" stroke="#2AA8A0" stroke-width="3" opacity="0.4"/>
   </g>
 
-  <g id="photo-slot" data-h="right" data-v="top" data-slot="image">
+  <g id="photo-slot" data-h="right" data-v="top" data-slot="image" data-prompt="professionals collaborating at a desk, shot from above, neutral tones">
     <circle cx="700" cy="112" r="248" fill="#D6DEDE"/>
   </g>
 
-  <g id="photo-slot-secondary" data-h="left" data-v="center" data-slot="image">
+  <g id="photo-slot-secondary" data-h="left" data-v="center" data-slot="image" data-prompt="handshake or meeting detail, grayscale, editorial">
     <circle cx="164" cy="700" r="228" fill="#D6DEDE"/>
   </g>
 
