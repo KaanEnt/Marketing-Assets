@@ -35,16 +35,33 @@ export function Studio() {
   const canUndo = useEditor((state) => state.past.length > 0);
   const canRedo = useEditor((state) => state.future.length > 0);
 
+  /**
+   * templateId is only ever sent on the opening turn. From the second turn on the
+   * live document is the skeleton, and re-sending the stock one would tell the
+   * model to fill a blank layout again, discarding whatever the user has since
+   * edited.
+   */
   const generate = useCallback(
-    async (message: string, targetPreset: PresetId, layerIds?: string[]) => {
+    async (
+      message: string,
+      targetPreset: PresetId,
+      layerIds?: string[],
+      templateId?: string,
+    ) => {
       setMessages((prev) => [...prev, { role: "user", text: message }, { role: "assistant", text: "" }]);
       setStatus("streaming");
-      setStatusNote("Composing the layout");
+      setStatusNote(templateId ? "Filling the layout" : "Composing the layout");
 
       try {
         await streamSse(
           "/api/generate",
-          { message, presetId: targetPreset, agentId: agentId.current, currentLayerIds: layerIds },
+          {
+            message,
+            presetId: targetPreset,
+            agentId: agentId.current,
+            currentLayerIds: layerIds,
+            templateId,
+          },
           {
             agent: (data) => {
               agentId.current = data.agentId as string;
@@ -141,9 +158,9 @@ export function Studio() {
     if (!stored) return;
 
     void (async () => {
-      let brief: { message: string; presetId: string };
+      let brief: { message: string; presetId: string; templateId?: string | null };
       try {
-        brief = JSON.parse(stored) as { message: string; presetId: string };
+        brief = JSON.parse(stored) as typeof brief;
       } catch {
         setStatus("error");
         setStatusNote("Could not read the brief.");
@@ -151,7 +168,7 @@ export function Studio() {
       }
 
       const target = isPresetId(brief.presetId) ? brief.presetId : "us-letter";
-      await generate(brief.message, target);
+      await generate(brief.message, target, undefined, brief.templateId ?? undefined);
     })();
   }, [generate]);
 
