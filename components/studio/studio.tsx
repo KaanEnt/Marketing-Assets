@@ -6,86 +6,93 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Wordmark } from "@/components/wordmark";
 import { Canvas } from "@/components/studio/canvas";
 import { LayerList } from "@/components/studio/layer-list";
+import { useEditor } from "@/lib/editor/store";
 import { streamSse } from "@/lib/sse-client";
-import { readLayers, sanitizeSvg, type LayerInfo } from "@/lib/svg/layers";
-import { PRESETS, isPresetId } from "@/lib/layout/presets";
+import { readLayers, sanitizeSvg } from "@/lib/svg/layers";
+import { PRESETS, isPresetId, type PresetId } from "@/lib/layout/presets";
 
 type Message = { role: "user" | "assistant"; text: string };
-
 type Status = "idle" | "streaming" | "correcting" | "done" | "error";
 
 export function Studio() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [status, setStatus] = useState<Status>("idle");
   const [statusNote, setStatusNote] = useState("");
-  const [svg, setSvg] = useState<string | null>(null);
-  const [layers, setLayers] = useState<LayerInfo[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [presetId, setPresetId] = useState("us-letter");
   const [input, setInput] = useState("");
   const agentId = useRef<string | undefined>(undefined);
   const started = useRef(false);
 
+  const presetId = useEditor((state) => state.presetId);
+  const layers = useEditor((state) => state.layers);
+  const setDocument = useEditor((state) => state.setDocument);
+  const undo = useEditor((state) => state.undo);
+  const redo = useEditor((state) => state.redo);
+  const canUndo = useEditor((state) => state.past.length > 0);
+  const canRedo = useEditor((state) => state.future.length > 0);
+
   const generate = useCallback(
-    async (message: string, targetPreset: string, layerIds?: string[]) => {
+    async (message: string, targetPreset: PresetId, layerIds?: string[]) => {
       setMessages((prev) => [...prev, { role: "user", text: message }, { role: "assistant", text: "" }]);
       setStatus("streaming");
       setStatusNote("Composing the layout");
 
       try {
-        await streamSse("/api/generate", {
-          message,
-          presetId: targetPreset,
-          agentId: agentId.current,
-          currentLayerIds: layerIds,
-        }, {
-          agent: (data) => {
-            agentId.current = data.agentId as string;
+        await streamSse(
+          "/api/generate",
+          { message, presetId: targetPreset, agentId: agentId.current, currentLayerIds: layerIds },
+          {
+            agent: (data) => {
+              agentId.current = data.agentId as string;
+            },
+            token: (data) => {
+              const text = data.text as string;
+              setMessages((prev) => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                if (last?.role === "assistant") next[next.length - 1] = { ...last, text: last.text + text };
+                return next;
+              });
+            },
+            correcting: (data) => {
+              setStatus("correcting");
+              setStatusNote(`Fixing contract violations (pass ${data.attempt as number})`);
+            },
+            document: (data) => {
+              const clean = sanitizeSvg(data.svg as string);
+              const incomingPreset = data.presetId as string;
+              setDocument(
+                clean,
+                isPresetId(incomingPreset) ? incomingPreset : targetPreset,
+                readLayers(clean),
+              );
+
+              // The streamed prose contains the whole SVG source; swap it for the
+              // model's one-line description so the transcript stays readable.
+              const note = (data.note as string) || "Done.";
+              setMessages((prev) => {
+                const next = [...prev];
+                if (next[next.length - 1]?.role === "assistant") {
+                  next[next.length - 1] = { role: "assistant", text: note };
+                }
+                return next;
+              });
+            },
+            done: () => {
+              setStatus("done");
+              setStatusNote("");
+            },
+            error: (data) => {
+              setStatus("error");
+              setStatusNote((data.message as string) || "Generation failed.");
+            },
           },
-          token: (data) => {
-            const text = data.text as string;
-            setMessages((prev) => {
-              const next = [...prev];
-              const last = next[next.length - 1];
-              if (last?.role === "assistant") next[next.length - 1] = { ...last, text: last.text + text };
-              return next;
-            });
-          },
-          correcting: (data) => {
-            setStatus("correcting");
-            setStatusNote(`Fixing contract violations (pass ${data.attempt as number})`);
-          },
-          document: (data) => {
-            const clean = sanitizeSvg(data.svg as string);
-            setSvg(clean);
-            setLayers(readLayers(clean));
-            setSelected(null);
-            // The streamed prose includes the whole SVG source; replace it with the
-            // model's one-line description so the transcript stays readable.
-            const note = (data.note as string) || "Done.";
-            setMessages((prev) => {
-              const next = [...prev];
-              if (next[next.length - 1]?.role === "assistant") {
-                next[next.length - 1] = { role: "assistant", text: note };
-              }
-              return next;
-            });
-          },
-          done: () => {
-            setStatus("done");
-            setStatusNote("");
-          },
-          error: (data) => {
-            setStatus("error");
-            setStatusNote((data.message as string) || "Generation failed.");
-          },
-        });
+        );
       } catch (error) {
         setStatus("error");
         setStatusNote(error instanceof Error ? error.message : "Generation failed.");
       }
     },
-    [],
+    [setDocument],
   );
 
   useEffect(() => {
@@ -107,20 +114,29 @@ export function Studio() {
       }
 
       const target = isPresetId(brief.presetId) ? brief.presetId : "us-letter";
-      setPresetId(target);
       await generate(brief.message, target);
     })();
   }, [generate]);
 
   const busy = status === "streaming" || status === "correcting";
-  const preset = isPresetId(presetId) ? PRESETS[presetId] : PRESETS["us-letter"];
+  const preset = PRESETS[presetId];
 
   return (
     <div className="flex h-screen flex-col bg-paper">
-      <header className="flex shrink-0 items-center justify-between border-b border-mist px-5 py-3">
+      <header className="flex shrink-0 items-center justify-between border-b border-mist px-5 py-2.5">
         <Wordmark muted />
-        <div className="flex items-center gap-2 text-sm">
-          <span className="rounded-full border border-mist px-3 py-1 font-medium text-graphite">
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-0.5">
+            <HeaderButton label="Undo" disabled={!canUndo} onClick={undo}>
+              <path d="M4 8h6.5a3.5 3.5 0 0 1 0 7H7M4 8l3-3M4 8l3 3" />
+            </HeaderButton>
+            <HeaderButton label="Redo" disabled={!canRedo} onClick={redo}>
+              <path d="M16 8H9.5a3.5 3.5 0 0 0 0 7H13M16 8l-3-3M16 8l-3 3" />
+            </HeaderButton>
+          </div>
+
+          <span className="rounded-full border border-mist px-3 py-1 text-sm font-medium text-graphite">
             {preset.label}
           </span>
           <span className="font-mono text-xs text-graphite/70">
@@ -130,7 +146,7 @@ export function Studio() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-[360px] shrink-0 flex-col border-r border-mist">
+        <aside className="flex w-[352px] shrink-0 flex-col border-r border-mist">
           <div className="flex-1 space-y-4 overflow-y-auto p-5">
             {messages.length === 0 && (
               <p className="text-sm text-graphite">
@@ -151,11 +167,7 @@ export function Studio() {
                       : "max-w-[92%] text-sm leading-relaxed text-graphite"
                   }
                 >
-                  {message.role === "assistant" && !message.text && busy ? (
-                    <ThinkingDots />
-                  ) : (
-                    message.text
-                  )}
+                  {message.role === "assistant" && !message.text && busy ? <ThinkingDots /> : message.text}
                 </div>
               </div>
             ))}
@@ -213,11 +225,37 @@ export function Studio() {
           </form>
         </aside>
 
-        <Canvas svg={svg} busy={busy} selected={selected} preset={preset} />
-
-        <LayerList layers={layers} selected={selected} onSelect={setSelected} busy={busy} />
+        <Canvas busy={busy} preset={preset} />
+        <LayerList busy={busy} />
       </div>
     </div>
+  );
+}
+
+function HeaderButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={label}
+      className="rounded-lg p-1.5 text-graphite transition enabled:hover:bg-ink/[0.06] enabled:hover:text-ink disabled:opacity-25"
+    >
+      <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        {children}
+      </svg>
+    </button>
   );
 }
 
