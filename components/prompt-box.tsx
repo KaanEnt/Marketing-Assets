@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useComposer } from "@/lib/composer/store";
+import { getTemplate } from "@/lib/templates/catalog";
 import { PRESET_IDS, PRESETS } from "@/lib/layout/presets";
 
 // Short labels so the row never wraps; the full brief is what actually gets sent.
@@ -30,7 +32,13 @@ const EXAMPLES = [
 export function PromptBox() {
   const router = useRouter();
   const [value, setValue] = useState("");
-  const [presetId, setPresetId] = useState<string>("us-letter");
+
+  const presetId = useComposer((state) => state.presetId);
+  const templateId = useComposer((state) => state.templateId);
+  const setPreset = useComposer((state) => state.setPreset);
+  const selectTemplate = useComposer((state) => state.selectTemplate);
+
+  const template = getTemplate(templateId ?? "");
 
   function submit(message: string) {
     const brief = message.trim();
@@ -38,7 +46,7 @@ export function PromptBox() {
 
     // No auth and no database, so the brief rides to the studio in session storage
     // rather than a query string that would be ugly and length-limited.
-    sessionStorage.setItem("brief", JSON.stringify({ message: brief, presetId }));
+    sessionStorage.setItem("brief", JSON.stringify({ message: brief, presetId, templateId }));
     router.push("/studio");
   }
 
@@ -61,37 +69,57 @@ export function PromptBox() {
             }
           }}
           rows={2}
-          placeholder="Describe the asset you need..."
+          placeholder={
+            template
+              ? `Describe your version of the ${template.label.toLowerCase()}...`
+              : "Describe the asset you need..."
+          }
           className="w-full resize-none bg-transparent px-4 pt-3 pb-2 text-[17px] leading-relaxed text-ink outline-none placeholder:text-graphite/55"
         />
 
         <div className="flex items-center justify-between gap-3 px-2 pb-1">
-          <label className="relative">
-            <span className="sr-only">Format</span>
-            <select
-              value={presetId}
-              onChange={(event) => setPresetId(event.target.value)}
-              className="cursor-pointer appearance-none rounded-full border border-mist bg-paper py-2 pl-3.5 pr-9 text-sm font-medium text-graphite outline-none transition hover:border-graphite/40 focus:border-signal"
-            >
-              {PRESET_IDS.filter((id) => PRESETS[id].family !== "logo").map((id) => (
-                <option key={id} value={id}>
-                  {PRESETS[id].label}
-                </option>
-              ))}
-            </select>
-            <svg
-              aria-hidden
-              viewBox="0 0 12 12"
-              className="pointer-events-none absolute right-3.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-graphite"
-            >
-              <path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
-          </label>
+          <div className="flex min-w-0 items-center gap-2">
+            <label className="relative shrink-0">
+              <span className="sr-only">Format</span>
+              <select
+                value={presetId}
+                onChange={(event) => setPreset(event.target.value)}
+                className="cursor-pointer appearance-none rounded-full border border-mist bg-paper py-2 pl-3.5 pr-9 text-sm font-medium text-graphite outline-none transition hover:border-graphite/40 focus:border-signal"
+              >
+                {PRESET_IDS.filter((id) => PRESETS[id].family !== "logo").map((id) => (
+                  <option key={id} value={id}>
+                    {PRESETS[id].label}
+                  </option>
+                ))}
+              </select>
+              <svg
+                aria-hidden
+                viewBox="0 0 12 12"
+                className="pointer-events-none absolute right-3.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-graphite"
+              >
+                <path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </label>
+
+            {template && (
+              <button
+                type="button"
+                onClick={() => selectTemplate(template.id)}
+                className="flex min-w-0 items-center gap-1.5 rounded-full bg-signal/10 py-2 pl-3 pr-2.5 text-sm font-medium text-signal transition hover:bg-signal/15"
+                title="Clear the layout"
+              >
+                <span className="truncate">{template.label}</span>
+                <svg aria-hidden viewBox="0 0 12 12" className="h-3 w-3 shrink-0">
+                  <path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+            )}
+          </div>
 
           <button
             type="submit"
             disabled={!value.trim()}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-paper transition enabled:hover:bg-signal disabled:cursor-not-allowed disabled:opacity-25"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink text-paper transition enabled:hover:bg-signal disabled:cursor-not-allowed disabled:opacity-25"
             aria-label="Generate"
           >
             <svg viewBox="0 0 16 16" className="h-4 w-4">
@@ -108,7 +136,7 @@ export function PromptBox() {
             type="button"
             onClick={() => {
               setValue(example.prompt);
-              setPresetId(example.presetId);
+              setPreset(example.presetId);
             }}
             className="rounded-full border border-ink/10 bg-white/70 px-3.5 py-1.5 text-[13px] text-graphite backdrop-blur-sm transition hover:border-ink/25 hover:text-ink"
           >
