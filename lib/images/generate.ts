@@ -1,24 +1,15 @@
 import "server-only";
 
-import { GoogleGenAI } from "@google/genai";
+import { firstInlineImage, getClient, noImageReason, type GeneratedImage } from "@/lib/images/client";
 
-const DEFAULT_MODEL = "gemini-2.5-flash-image";
+// Nano Banana Pro. Chosen over the flash tier for one reason: this app edits the user's
+// own photographs, where a drifted product label or a drifted face is a defect rather
+// than a variation. It costs roughly twice the latency, so paths that do not touch a
+// real subject stay free to override it.
+export const IMAGE_MODEL = process.env.IMAGE_GEN_MODEL || "gemini-3-pro-image";
 
-function apiKey(): string | undefined {
-  return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-}
-
-let client: GoogleGenAI | undefined;
-function getClient(): GoogleGenAI | null {
-  const key = apiKey();
-  if (!key) return null;
-  if (!client) client = new GoogleGenAI({ apiKey: key });
-  return client;
-}
-
-export function isImageGenConfigured(): boolean {
-  return Boolean(apiKey());
-}
+export { isImageGenConfigured } from "@/lib/images/client";
+export type { GeneratedImage } from "@/lib/images/client";
 
 export type SlotKind = "image" | "illustration";
 
@@ -33,8 +24,6 @@ export type GenerateOptions = {
   aspect?: number;
   signal?: AbortSignal;
 };
-
-export type GeneratedImage = { dataUri: string; mimeType: string };
 
 /**
  * Photography and illustration have opposite requirements, so they get opposite
@@ -78,12 +67,8 @@ function buildPrompt(options: GenerateOptions): string {
 }
 
 export async function generateImage(options: GenerateOptions): Promise<GeneratedImage | null> {
-  const ai = getClient();
-  if (!ai) throw new Error("GEMINI_API_KEY (or GOOGLE_API_KEY) is not set");
-
-  const model = process.env.IMAGE_GEN_MODEL || DEFAULT_MODEL;
-  const response = await ai.models.generateContent({
-    model,
+  const response = await getClient().models.generateContent({
+    model: IMAGE_MODEL,
     contents: buildPrompt(options),
     config: {
       responseModalities: ["IMAGE"],
@@ -91,20 +76,13 @@ export async function generateImage(options: GenerateOptions): Promise<Generated
     },
   });
 
-  for (const part of response.candidates?.[0]?.content?.parts ?? []) {
-    const inline = part.inlineData;
-    if (inline?.data) {
-      const mimeType = inline.mimeType || "image/png";
-      return { dataUri: `data:${mimeType};base64,${inline.data}`, mimeType };
-    }
-  }
+  const image = firstInlineImage(response);
+  if (image) return image;
 
   // A successful response with no image means a safety block, recitation, or a
   // text-only reply. Surface why, so a silent null is never read as "no work".
   console.warn(
-    `[images] no image for "${options.prompt.slice(0, 60)}" (finish=${
-      response.candidates?.[0]?.finishReason ?? "none"
-    })`,
+    `[images] no image for "${options.prompt.slice(0, 60)}" (${noImageReason(response)})`,
   );
   return null;
 }
