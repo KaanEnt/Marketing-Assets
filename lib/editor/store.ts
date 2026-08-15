@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { identityTransform, type BaseBox, type LayerTransform } from "@/lib/editor/transform";
+import { identityTransform, isIdentity, type BaseBox, type LayerTransform } from "@/lib/editor/transform";
 import type { Asset } from "@/lib/assets/types";
 import type { LayerInfo } from "@/lib/svg/layers";
 import { DEFAULT_PRESET, type PresetId } from "@/lib/layout/presets";
@@ -117,11 +117,20 @@ export const useEditor = create<EditorState>((set, get) => ({
       presetId,
       layers: incoming.map((layer) => {
         const previous = existing.get(layer.id);
+
+        // Only a transform that differs from the authored position of the geometry it
+        // was measured against is the user's work. Every measured layer holds one,
+        // because setBaseBoxes seeds an identity, and carrying that forward pins the
+        // layer to its OLD centre: the revision is then silently dragged back to the
+        // previous layout even though nobody touched anything.
+        const moved =
+          previous?.transform && previous.baseBox && !isIdentity(previous.transform, previous.baseBox);
+
         return {
           ...layer,
           // Geometry changed, so the measured box is stale and gets re-measured.
           baseBox: null,
-          transform: previous?.transform ?? null,
+          transform: moved ? previous.transform : null,
           visible: previous?.visible ?? true,
           locked: previous?.locked ?? false,
         };
