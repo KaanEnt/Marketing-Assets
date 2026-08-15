@@ -53,7 +53,7 @@ because raster at that size looks muddy and cannot take the palette.
 | Framework | Next.js App Router, TypeScript strict, ESM |
 | Render | SVG DOM scene graph |
 | Editor mechanics | Fabric v6 as a transparent shadow interaction canvas |
-| AI | Cursor SDK (`@cursor/sdk`), default `grok-4.6` |
+| AI | Cursor SDK (`@cursor/sdk`), default `grok-4.6`, rescue `gpt-5.6-sol` |
 | Raster | Gemini `gemini-2.5-flash-image` |
 | Storage | IndexedDB, browser only |
 | Auth | None |
@@ -82,4 +82,19 @@ That wraps `next dev` in nested `secret-env` calls to compose the `cursor` and `
 profiles. `secret-env` accepts a single `--profile` but spawns with
 `{ ...process.env, ...childEnv }`, so nesting composes without a registry change.
 
-Model selection is overridable via `ASSETS_MODEL`.
+Model selection is overridable via `ASSETS_MODEL`, and the rescue model via
+`ASSETS_RESCUE_MODEL`.
+
+### The rescue pass
+
+Grok runs every generation. If it spends both correction rounds and still has not
+returned a document that satisfies the contract, the turn starts over on
+`gpt-5.6-sol` with a fresh agent, and the project's agent moves with it so later
+revisions continue on whichever model actually worked. A model picked by hand is
+never escalated behind the user's back.
+
+Worth being precise about what this catches. Grok's measured weakness is
+composition: a rule drawn through a headline, a photo panel landing on text. None of
+that fails validation, because the validator checks structure and cannot see
+overlap, so none of it triggers a rescue. What the rescue catches is the harder
+failure, where the document does not parse or does not meet the contract at all.
