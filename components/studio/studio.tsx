@@ -8,6 +8,7 @@ import { AdaptPanel } from "@/components/studio/adapt-panel";
 import { Canvas } from "@/components/studio/canvas";
 import { FormatBar } from "@/components/studio/format-bar";
 import { LayerList } from "@/components/studio/layer-list";
+import { TextProperties } from "@/components/studio/text-properties";
 import { useEditor } from "@/lib/editor/store";
 import { streamSse } from "@/lib/sse-client";
 import { readLayers, sanitizeSvg } from "@/lib/svg/layers";
@@ -30,6 +31,7 @@ export function Studio() {
 
   const presetId = useEditor((state) => state.presetId);
   const layers = useEditor((state) => state.layers);
+  const selection = useEditor((state) => state.selection);
   const setDocument = useEditor((state) => state.setDocument);
   const undo = useEditor((state) => state.undo);
   const redo = useEditor((state) => state.redo);
@@ -290,7 +292,13 @@ export function Studio() {
         </aside>
 
         <Canvas busy={busy} preset={preset} />
-        <LayerList busy={busy} />
+
+        <aside className="flex w-[288px] shrink-0 flex-col border-l border-mist">
+          <LayerList busy={busy} />
+          {/* Keyed on the layer so the run picker resets when the selection moves,
+              rather than pointing at a run index the new layer may not have. */}
+          <TextProperties key={selection[0] ?? "none"} />
+        </aside>
       </div>
 
       <AdaptPanel

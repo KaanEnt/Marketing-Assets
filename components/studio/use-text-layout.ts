@@ -5,7 +5,15 @@ import { useEffect, useRef, type RefObject } from "react";
 import { useEditor } from "@/lib/editor/store";
 import { typeScale } from "@/lib/ai/prompts/house-style";
 import { createMeasurer, fontsReady } from "@/lib/text/measure";
-import { effectiveRun, findRuns, runElement, layoutRun, writeRun, type TextRun } from "@/lib/text/runs";
+import {
+  effectiveRun,
+  findRuns,
+  runElement,
+  layoutRun,
+  writeRun,
+  type LayoutResult,
+  type TextRun,
+} from "@/lib/text/runs";
 import type { Preset } from "@/lib/layout/presets";
 
 /**
@@ -28,6 +36,7 @@ export function useTextLayout(
   const runs = useEditor((state) => state.runs);
   const textEdits = useEditor((state) => state.textEdits);
   const setRuns = useEditor((state) => state.setRuns);
+  const setLayout = useEditor((state) => state.setLayout);
   const applied = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -63,36 +72,46 @@ export function useTextLayout(
     const root = host.current?.querySelector("svg");
     if (!root || Object.keys(runs).length === 0) return;
 
-    const { measure, dispose } = createMeasurer();
-    const floor = typeScale(preset).floor;
-    const seen = new Set<string>();
+    const render = () => {
+      const { measure, dispose } = createMeasurer();
+      const floor = typeScale(preset).floor;
+      const seen = new Set<string>();
+      const result: Record<string, LayoutResult> = {};
 
-    try {
-      for (const [key, edit] of Object.entries(textEdits)) {
-        const run = runs[key];
-        const element = elementFor(root, run);
-        if (!run || !element) continue;
+      try {
+        for (const [key, edit] of Object.entries(textEdits)) {
+          const run = runs[key];
+          const element = elementFor(root, run);
+          if (!run || !element) continue;
 
-        seen.add(key);
-        layoutRun(element, effectiveRun(run, edit), measure, floor);
+          seen.add(key);
+          result[key] = layoutRun(element, effectiveRun(run, edit), measure, floor);
+        }
+
+        // An edit that has been undone leaves its rendering behind, so anything
+        // laid out last pass and not this one goes back to what was authored.
+        for (const key of applied.current) {
+          if (seen.has(key)) continue;
+          const run = runs[key];
+          const element = elementFor(root, run);
+          if (!run || !element) continue;
+
+          writeRun(element, run.lines, run.style, run.x, run.baseline);
+        }
+      } finally {
+        dispose();
       }
 
-      // An edit that has been undone leaves its rendering behind, so anything
-      // laid out last pass and not this one goes back to what was authored.
-      for (const key of applied.current) {
-        if (seen.has(key)) continue;
-        const run = runs[key];
-        const element = elementFor(root, run);
-        if (!run || !element) continue;
+      applied.current = seen;
+      // Published so the panel can show what the copy actually rendered as,
+      // rather than the size that was asked for. A block under shrink-to-fit
+      // routinely renders at half the requested size, and a panel reporting the
+      // request is describing something the user cannot see.
+      setLayout(result);
+    };
 
-        writeRun(element, run.lines, run.style, run.x, run.baseline);
-      }
-    } finally {
-      dispose();
-    }
-
-    applied.current = seen;
-  }, [runs, textEdits, host, preset]);
+    render();
+  }, [runs, textEdits, host, preset, setLayout]);
 }
 
 function elementFor(root: SVGSVGElement, run: TextRun | undefined): SVGTextElement | null {
