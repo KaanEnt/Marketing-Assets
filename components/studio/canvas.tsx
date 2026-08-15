@@ -4,7 +4,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { Canvas as FabricCanvas, Rect as FabricRect } from "fabric";
 
 import { useEditor } from "@/lib/editor/store";
+import { registerLiveRoot } from "@/lib/editor/live-document";
 import { useSlotFilling } from "@/components/studio/use-slot-filling";
+import { useTextLayout } from "@/components/studio/use-text-layout";
+import { TextOverlay } from "@/components/studio/text-overlay";
+import { runKey } from "@/lib/text/runs";
 import { frameTargets, snapAxis, type SnapGuide, type SnapTarget } from "@/lib/editor/snapping";
 import {
   identityTransform,
@@ -21,6 +25,7 @@ type ProxyRect = FabricRect & { layerId: string };
 
 export function Canvas({ busy, preset }: CanvasProps) {
   const wrapper = useRef<HTMLDivElement>(null);
+  const artboard = useRef<HTMLDivElement>(null);
   const svgHost = useRef<HTMLDivElement>(null);
   // React owns this div and nothing inside it. Fabric relocates its <canvas>
   // into a wrapper of its own, and if React owned that element it would later
@@ -44,6 +49,9 @@ export function Canvas({ busy, preset }: CanvasProps) {
   const nudge = useEditor((state) => state.nudge);
   const undo = useEditor((state) => state.undo);
   const redo = useEditor((state) => state.redo);
+  const editingRun = useEditor((state) => state.editingRun);
+  const setEditingRun = useEditor((state) => state.setEditingRun);
+  const textEdits = useEditor((state) => state.textEdits);
 
   // Zoom to fit whenever the viewport or artboard dimensions change.
   useLayoutEffect(() => {
@@ -82,10 +90,18 @@ export function Canvas({ busy, preset }: CanvasProps) {
     host.innerHTML = svg
       ? svg.replace("<svg", `<svg style="width:100%;height:100%;display:block"`)
       : "";
+
+    // Publish the live tree so adaptation and export read the document as it
+    // actually stands, glyphs and generated pictures included.
+    registerLiveRoot(host.querySelector("svg"));
+    return () => registerLiveRoot(null);
   }, [svg]);
 
   // Resolve icon glyphs and generate art for empty photo/illustration slots.
   useSlotFilling(svgHost, svg);
+
+  // Record every block of copy as authored, and re-wrap what the user changes.
+  useTextLayout(svgHost, svg, preset);
 
   // Measure authored geometry once the document is in the DOM. getBBox only
   // works on a rendered node, so this cannot be done at parse time.
@@ -95,26 +111,55 @@ export function Canvas({ busy, preset }: CanvasProps) {
 
     const root = host.querySelector("svg");
     if (!root) return;
+    let cancelled = false;
 
-    const boxes: Record<string, BaseBox> = {};
-    for (const group of Array.from(root.children)) {
-      if (!(group instanceof SVGGElement)) continue;
-      const id = group.getAttribute("id");
-      if (!id) continue;
+    const measure = () => {
+      if (cancelled) return;
 
-      // Measure before any user transform is applied, or the box compounds.
-      const existing = group.getAttribute("transform");
-      group.removeAttribute("transform");
-      const box = group.getBBox();
-      if (existing) group.setAttribute("transform", existing);
+      const boxes: Record<string, BaseBox> = {};
+      for (const group of Array.from(root.children)) {
+        if (!(group instanceof SVGGElement)) continue;
+        const id = group.getAttribute("id");
+        if (!id) continue;
 
-      if (box.width > 0 && box.height > 0) {
-        boxes[id] = { x: box.x, y: box.y, width: box.width, height: box.height };
+        // Measure before any user transform is applied, or the box compounds.
+        const existing = group.getAttribute("transform");
+        group.removeAttribute("transform");
+        const box = group.getBBox();
+        if (existing) group.setAttribute("transform", existing);
+
+        if (box.width > 0 && box.height > 0) {
+          boxes[id] = { x: box.x, y: box.y, width: box.width, height: box.height };
+        }
       }
-    }
 
-    setBaseBoxes(boxes);
-  }, [svg, setBaseBoxes]);
+      setBaseBoxes(boxes);
+    };
+
+    /**
+     * Wait for the real typefaces before believing any text measurement.
+     *
+     * Until a webfont lands, text is laid out in the fallback face and its box
+     * comes back a couple of units off. Nothing downstream can recover from that,
+     * because the wrong box is what Fabric's handles, the snapping targets and
+     * the format solver all build on: a two-unit error in a headline's height is
+     * what puts it two units outside a story's safe area after adaptation.
+     *
+     * getBBox first, deliberately. Forcing layout is what makes the browser begin
+     * loading the faces this document actually references, so fonts.ready has
+     * something to wait for instead of resolving instantly on an empty queue.
+     */
+    root.getBBox();
+    void document.fonts.ready.then(measure);
+
+    return () => {
+      cancelled = true;
+    };
+    // Re-measured after a copy edit too: re-wrapping changes a block's geometry,
+    // and a stale box leaves the selection handles drawn around where the text
+    // used to be. useTextLayout is called above, so its effects have already
+    // rewritten the document by the time this runs.
+  }, [svg, textEdits, setBaseBoxes]);
 
   // Write transforms and visibility onto the live nodes.
   useEffect(() => {
@@ -174,7 +219,17 @@ export function Canvas({ busy, preset }: CanvasProps) {
    * created. Selection, locking and visibility all feed proxy construction too.
    */
   const proxyKey = layers
-    .map((layer) => `${layer.id}:${layer.baseBox ? 1 : 0}:${layer.locked ? 1 : 0}:${layer.visible ? 1 : 0}`)
+    .map((layer) => {
+      // The box's dimensions, not merely whether it exists. A block that re-wraps
+      // keeps its box and changes its size, and a presence-only key would leave
+      // the handles sized to the copy that used to be there.
+      const box = layer.baseBox
+        ? [layer.baseBox.x, layer.baseBox.y, layer.baseBox.width, layer.baseBox.height]
+            .map((value) => Math.round(value))
+            .join(",")
+        : "-";
+      return `${layer.id}:${box}:${layer.locked ? 1 : 0}:${layer.visible ? 1 : 0}`;
+    })
     .join("|");
 
   // Build the shadow canvas. Fabric owns hit-testing, the transformer and
@@ -237,6 +292,16 @@ export function Canvas({ busy, preset }: CanvasProps) {
         canvas.add(proxy);
       }
 
+      // Re-apply the store's selection to the canvas that was just built.
+      // Rebuilding discards the active object, and the effect that mirrors panel
+      // selection only reacts to selection changing, which it has not: the layer
+      // stays selected in the store and silently loses its handles on screen.
+      const restore = state.selection
+        .map((id) => registry.get(id))
+        .filter((proxy): proxy is ProxyRect => Boolean(proxy));
+      if (restore.length === 1 && restore[0]) canvas.setActiveObject(restore[0]);
+      canvas.requestRenderAll();
+
       const syncSelection = () => {
         const active = canvas?.getActiveObjects() ?? [];
         select(active.map((object) => (object as ProxyRect).layerId).filter(Boolean));
@@ -292,6 +357,37 @@ export function Canvas({ busy, preset }: CanvasProps) {
         syncFromProxies();
       });
 
+      /**
+       * Enter the text editor on a double-click, on the run actually under the
+       * pointer rather than the layer's first. A contact block is two columns and
+       * a mission panel is a heading plus two paragraphs; always opening the first
+       * would make the rest of them uneditable.
+       */
+      canvas.on("mouse:dblclick", (event) => {
+        const target = event.target as unknown as ProxyRect | undefined;
+        if (!target) return;
+
+        const layer = useEditor.getState().layers.find((item) => item.id === target.layerId);
+        if (!layer || layer.locked) return;
+
+        const group = svgHost.current?.querySelector(`#${CSS.escape(target.layerId)}`);
+        const elements = Array.from(group?.querySelectorAll("text") ?? []);
+        if (elements.length === 0) return;
+
+        const pointer = event.e as MouseEvent;
+        const hit = elements.findIndex((element) => {
+          const box = element.getBoundingClientRect();
+          return (
+            pointer.clientX >= box.left &&
+            pointer.clientX <= box.right &&
+            pointer.clientY >= box.top &&
+            pointer.clientY <= box.bottom
+          );
+        });
+
+        setEditingRun(runKey(target.layerId, hit === -1 ? 0 : hit));
+      });
+
       canvas.on("before:transform", () => {
         interactionPending.current = true;
       });
@@ -315,7 +411,7 @@ export function Canvas({ busy, preset }: CanvasProps) {
     };
     // Rebuilt wholesale when the document, zoom or artboard changes: the proxies
     // are derived state, so recreating them is simpler and safer than patching.
-  }, [svg, scale, preset, proxyKey, syncFromProxies, select]);
+  }, [svg, scale, preset, proxyKey, syncFromProxies, select, setEditingRun]);
 
   // Reflect layer-panel selection onto the canvas.
   useEffect(() => {
@@ -339,6 +435,10 @@ export function Canvas({ busy, preset }: CanvasProps) {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      // The inline editor owns the keyboard while it is open: arrows move the
+      // caret, not the layer, and Escape closes the field rather than clearing
+      // the selection behind it.
+      if (target?.isContentEditable || useEditor.getState().editingRun) return;
 
       const step = event.shiftKey ? 10 : 1;
       const meta = event.metaKey || event.ctrlKey;
@@ -393,7 +493,7 @@ export function Canvas({ busy, preset }: CanvasProps) {
       )}
 
       {svg && (
-        <div className="relative" style={{ width: boardWidth, height: boardHeight }}>
+        <div ref={artboard} className="relative" style={{ width: boardWidth, height: boardHeight }}>
           {/* Contents injected imperatively above; React must not manage them. */}
           <div
             ref={svgHost}
@@ -425,7 +525,15 @@ export function Canvas({ busy, preset }: CanvasProps) {
             />
           ))}
 
-          <div ref={fabricHost} className="absolute inset-0" />
+          {/* Fabric stops listening while the editor is open, or a drag on the
+              field would move the layer out from under the caret. */}
+          <div
+            ref={fabricHost}
+            className="absolute inset-0"
+            style={{ pointerEvents: editingRun ? "none" : undefined }}
+          />
+
+          <TextOverlay host={artboard} scale={scale} />
         </div>
       )}
 

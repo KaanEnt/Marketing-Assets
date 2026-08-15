@@ -185,9 +185,26 @@ filters, icon glyphs, logo lockups, and illustration slots.
 (`top | bottom | center | scale | stretch`). Format transformation is a deterministic
 solve, not a model call, so it is instant and free.
 
+Two rules are what make the output look designed rather than resized:
+
+- **Whitespace scales with the art.** Figma holds a margin at its absolute value
+  because it resizes interfaces within one medium. Transposing a composition between
+  media, a held-constant margin quietly tightens every edge as the frame grows. The
+  gap to the anchored edge scales by the same factor as the layer.
+- **Only `stretch` licenses a shape change.** Every other layer takes one scale factor
+  on both axes, so a circular photo mask stays circular and a logo lockup stays square.
+  A photo panel that declares `stretch` does reshape, and the photograph inside it
+  carries a counter-scale so the crop changes rather than the person in it.
+
+**Auto-correct.** The solve is followed by a deterministic repair pass: backgrounds are
+grown to cover the frame and its print bleed, copy is pulled back inside the safe area,
+overlapping text blocks are pushed apart, and type that came out below the format's
+legibility floor is reported. What the pass cannot fix, it names, and only those
+specific problems are handed to the model as a rework brief.
+
 **Stack.** Next.js, TypeScript strict, SVG DOM rendering, Fabric v6 for editor
-mechanics, Cursor SDK on `gpt-5.6-sol-high-fast`, Gemini `gemini-3-pro-image` for
-raster, IndexedDB for storage, no auth.
+mechanics, Cursor SDK on `grok-4.6` with a `gpt-5.6-sol` rescue pass, Gemini
+`gemini-3-pro-image` for raster, IndexedDB for storage, no auth.
 
 **Enhancement modes.** Four, because a studio product shot, a thumbnail hero and a
 layerable cutout want opposite treatments: `auto`, `product`, `thumbnail`, `cutout`.

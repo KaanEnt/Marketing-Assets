@@ -29,13 +29,12 @@ export function identityTransform(box: BaseBox): LayerTransform {
 }
 
 export function isIdentity(transform: LayerTransform, box: BaseBox): boolean {
-  const base = identityTransform(box);
+  return sameTransform(transform, identityTransform(box));
+}
+
+export function sameTransform(a: LayerTransform, b: LayerTransform): boolean {
   return (
-    near(transform.cx, base.cx) &&
-    near(transform.cy, base.cy) &&
-    near(transform.sx, 1) &&
-    near(transform.sy, 1) &&
-    near(transform.angle, 0)
+    near(a.cx, b.cx) && near(a.cy, b.cy) && near(a.sx, b.sx) && near(a.sy, b.sy) && near(a.angle, b.angle)
   );
 }
 

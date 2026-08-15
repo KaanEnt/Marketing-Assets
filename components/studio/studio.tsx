@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Wordmark } from "@/components/wordmark";
+import { AdaptPanel } from "@/components/studio/adapt-panel";
 import { AssetTray } from "@/components/studio/asset-tray";
 import { Canvas } from "@/components/studio/canvas";
 import { EnhanceCard, type Comparison } from "@/components/studio/enhance-card";
+import { FormatBar } from "@/components/studio/format-bar";
 import { LayerList } from "@/components/studio/layer-list";
+import { TextProperties } from "@/components/studio/text-properties";
 import { readBrief } from "@/lib/assets/brief";
 import { imageFilesFrom, imageFilesFromTransfer, importAsset } from "@/lib/assets/import";
 import { summarizeAssets, type Asset } from "@/lib/assets/types";
@@ -21,6 +24,8 @@ import {
 } from "@/lib/images/modes";
 import { streamSse } from "@/lib/sse-client";
 import { readLayers, sanitizeSvg } from "@/lib/svg/layers";
+import { refineMessage } from "@/lib/ai/prompts/refine";
+import type { AdaptCandidate } from "@/lib/layout/adapt";
 import { PRESETS, isPresetId, type PresetId } from "@/lib/layout/presets";
 
 type Message = {
@@ -38,12 +43,15 @@ export function Studio() {
   const [statusNote, setStatusNote] = useState("");
   const [input, setInput] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [adapting, setAdapting] = useState(false);
+  const [model, setModel] = useState<string | null>(null);
   const agentId = useRef<string | undefined>(undefined);
   const started = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const presetId = useEditor((state) => state.presetId);
   const layers = useEditor((state) => state.layers);
+  const selection = useEditor((state) => state.selection);
   const setDocument = useEditor((state) => state.setDocument);
   const addAsset = useEditor((state) => state.addAsset);
   const updateAsset = useEditor((state) => state.updateAsset);
@@ -73,6 +81,7 @@ export function Studio() {
           {
             agent: (data) => {
               agentId.current = data.agentId as string;
+              if (typeof data.model === "string") setModel(data.model);
             },
             token: (data) => {
               const text = data.text as string;
@@ -87,7 +96,24 @@ export function Studio() {
               setStatus("correcting");
               setStatusNote(`Fixing contract violations (pass ${data.attempt as number})`);
             },
+            // The primary model spent its correction rounds without producing a
+            // document that satisfies the contract, so a different one starts
+            // clean. Said out loud rather than silently, because the project's
+            // agent moves with it and every later turn runs on the new model.
+            rescuing: (data) => {
+              setStatus("correcting");
+              setStatusNote(`${data.from as string} could not satisfy the contract. Retrying on ${data.to as string}`);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  role: "assistant",
+                  text: `${data.from as string} could not satisfy the output contract after two corrections. Starting over on ${data.to as string}.`,
+                },
+                { role: "assistant", text: "" },
+              ]);
+            },
             document: (data) => {
+              if (typeof data.model === "string") setModel(data.model);
               const clean = sanitizeSvg(data.svg as string);
               const incomingPreset = data.presetId as string;
               setDocument(
@@ -274,6 +300,38 @@ export function Studio() {
     [updateAsset],
   );
 
+  /**
+   * Take an adapted document as the live one.
+   *
+   * The transforms are handed over explicitly rather than left to the usual
+   * carry-over-by-id path, because those carried transforms belong to the old
+   * frame: reusing them would place every layer where it sat on a differently
+   * shaped artboard and undo the entire solve.
+   */
+  const applyCandidate = useCallback(
+    (candidate: AdaptCandidate) => {
+      const clean = sanitizeSvg(candidate.svg);
+      setDocument(clean, candidate.preset.id, readLayers(clean), {
+        transforms: candidate.transforms,
+        keepSlots: true,
+      });
+      setAdapting(false);
+
+      const fixed = candidate.issues.filter((issue) => issue.fixed).length;
+      const open = candidate.issues.length - fixed;
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: `Adapted to ${candidate.preset.label} (${candidate.preset.width} × ${candidate.preset.height}). ${
+            fixed > 0 ? `${fixed} layer${fixed === 1 ? "" : "s"} auto-corrected. ` : ""
+          }${open > 0 ? `${open} problem${open === 1 ? "" : "s"} left for a rework.` : "No problems found."}`,
+        },
+      ]);
+    },
+    [setDocument],
+  );
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
@@ -337,12 +395,20 @@ export function Studio() {
             </HeaderButton>
           </div>
 
-          <span className="rounded-full border border-mist px-3 py-1 text-sm font-medium text-graphite">
-            {preset.label}
-          </span>
-          <span className="font-mono text-xs text-graphite/70">
-            {preset.width} × {preset.height}
-          </span>
+          {model && (
+            <span
+              title="Model that produced the current document"
+              className="rounded-full border border-mist px-2.5 py-1 font-mono text-[11px] text-graphite/80"
+            >
+              {model}
+            </span>
+          )}
+
+          <FormatBar
+            preset={preset}
+            disabled={busy || layers.length === 0}
+            onAdapt={() => setAdapting(true)}
+          />
         </div>
       </header>
 
@@ -484,8 +550,32 @@ export function Studio() {
         </aside>
 
         <Canvas busy={busy} preset={preset} />
-        <LayerList busy={busy} />
+
+        <aside className="flex w-[288px] shrink-0 flex-col border-l border-mist">
+          <LayerList busy={busy} />
+          {/* Keyed on the layer so the run picker resets when the selection moves,
+              rather than pointing at a run index the new layer may not have. */}
+          <TextProperties key={selection[0] ?? "none"} />
+        </aside>
       </div>
+
+      <AdaptPanel
+        open={adapting}
+        busy={busy}
+        onClose={() => setAdapting(false)}
+        onApply={applyCandidate}
+        onRefine={(candidate) => {
+          // Show the solved version first. Even an imperfect adaptation is a
+          // better thing to sit and look at than the previous format while the
+          // model works, and if the rework fails the user still has this.
+          applyCandidate(candidate);
+          void generate(
+            refineMessage(candidate.preset, candidate.issues),
+            candidate.preset.id,
+            Object.keys(candidate.transforms),
+          );
+        }}
+      />
     </div>
   );
 }
