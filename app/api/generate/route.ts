@@ -7,6 +7,7 @@ import { DEFAULT_MODEL, rescueModelFor } from "@/lib/ai/models";
 import { extractSvg, stripSvg } from "@/lib/svg/extract";
 import { formatViolations, validateSvg } from "@/lib/svg/validate";
 import { DEFAULT_PRESET, PRESETS, getPreset } from "@/lib/layout/presets";
+import type { AssetSummary } from "@/lib/assets/types";
 import type { BrandKit } from "@/lib/brand/kit";
 
 export const runtime = "nodejs";
@@ -24,6 +25,7 @@ type GenerateRequest = {
   templateId?: string;
   brandKit?: BrandKit;
   currentLayerIds?: string[];
+  assets?: AssetSummary[];
 };
 
 export async function POST(request: Request) {
@@ -46,6 +48,8 @@ export async function POST(request: Request) {
   // A model the user picked by hand is respected as picked; escalating behind
   // their back would make the picker a suggestion.
   const rescue = requested ? null : rescueModelFor(primary);
+  const assets = payload.assets ?? [];
+  const assetIds = assets.map((asset) => asset.id);
 
   let agent: AgentHandle | undefined;
   let closed = false;
@@ -60,6 +64,7 @@ export async function POST(request: Request) {
           brandKit: payload.brandKit,
           currentLayerIds: payload.currentLayerIds,
           templateId: payload.templateId,
+          assets,
         }),
         "",
         "## Brief",
@@ -81,7 +86,7 @@ export async function POST(request: Request) {
         if (turn.status === "error") return null;
 
         let svg = extractSvg(turn.text);
-        let result = svg ? validateSvg(svg, preset) : null;
+        let result = svg ? validateSvg(svg, preset, assetIds) : null;
 
         for (let round = 0; round < MAX_CORRECTIONS; round += 1) {
           if (svg && result?.ok) break;
@@ -96,7 +101,7 @@ export async function POST(request: Request) {
           if (turn.status === "error") break;
 
           svg = extractSvg(turn.text);
-          result = svg ? validateSvg(svg, preset) : null;
+          result = svg ? validateSvg(svg, preset, assetIds) : null;
         }
 
         if (!svg || !result?.ok) {

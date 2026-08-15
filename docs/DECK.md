@@ -68,6 +68,11 @@ figurative illustration well, so that goes to Gemini as transparent PNG.
 Saying this out loud is a strength. It shows the architecture is designed around real
 model capability rather than around a demo.
 
+The same boundary is what makes imported photography work. The user brings a real
+product or a real face, Gemini re-lights it and replaces its background without
+touching the subject, and the SVG layer keeps ownership of the type, the palette and
+the composition. Neither side is asked to do the other's job.
+
 ---
 
 ## 2. Design system
@@ -198,5 +203,10 @@ legibility floor is reported. What the pass cannot fix, it names, and only those
 specific problems are handed to the model as a rework brief.
 
 **Stack.** Next.js, TypeScript strict, SVG DOM rendering, Fabric v6 for editor
-mechanics, Cursor SDK on `gpt-5.6-sol`, Gemini `gemini-2.5-flash-image` for raster,
-IndexedDB for storage, no auth.
+mechanics, Cursor SDK on `grok-4.6` with a `gpt-5.6-sol` rescue pass, Gemini
+`gemini-3-pro-image` for raster, IndexedDB for storage, no auth.
+
+**Enhancement modes.** Four, because a studio product shot, a thumbnail hero and a
+layerable cutout want opposite treatments: `auto`, `product`, `thumbnail`, `cutout`.
+Each runs from the image as imported rather than the last result, so passes never
+compound.

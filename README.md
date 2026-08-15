@@ -46,6 +46,41 @@ figurative illustration well, so that is delegated to Gemini as transparent PNG.
 are the exception in the other direction: 24px glyphs come from Lucide as inline SVG,
 because raster at that size looks muddy and cannot take the palette.
 
+## Imported images
+
+Attach a photograph in the chat, or on the landing brief, and it becomes a project
+asset with a stable id. A vision model captions it, because the design agent composes
+around pictures it never sees, and the caption is what turns a hole in the layout into
+a layout built for the product.
+
+`/enhance` re-shoots that photograph through Gemini in one of four modes:
+
+| Mode | Job |
+| --- | --- |
+| `auto` | Clean background, studio light, subject untouched |
+| `product` | Seamless studio hero, label and packaging preserved |
+| `thumbnail` | Punchy 16:9 hero with the top third left clear for a headline |
+| `cutout` | Subject on transparency, ready to layer over the design |
+
+Anything after the mode is extra direction: `/enhance product on a pale sage backdrop`.
+
+Every pass runs from the image as imported, never from the previous result, so
+switching modes or re-running one cannot compound artefacts and revert is always one
+click. The preservation clause is stated before the creative direction in every mode,
+because a generator asked to improve a photo will otherwise redesign the product.
+
+The document binds a slot to an asset rather than describing one:
+
+```svg
+<g id="product-shot" data-slot="image" data-asset="asset-1" data-h="center" data-v="center">
+  <rect x="120" y="220" width="840" height="840" rx="24" fill="#EFEEEA"/>
+</g>
+```
+
+The placeholder shape is still the mask, so an arc-masked slot stays arc-masked. A
+cutout is never clipped, whatever slot kind it lands on. Enhancing an already-placed
+asset repaints its slot in place with no further model call.
+
 ## Stack
 
 | Concern | Choice |
@@ -54,7 +89,7 @@ because raster at that size looks muddy and cannot take the palette.
 | Render | SVG DOM scene graph |
 | Editor mechanics | Fabric v6 as a transparent shadow interaction canvas |
 | AI | Cursor SDK (`@cursor/sdk`), default `grok-4.6`, rescue `gpt-5.6-sol` |
-| Raster | Gemini `gemini-2.5-flash-image` |
+| Raster | Gemini `gemini-3-pro-image`, captions on `gemini-3.5-flash-lite` |
 | Storage | IndexedDB, browser only |
 | Auth | None |
 

@@ -18,7 +18,45 @@ import { extractPalette, fillSlot, findSlots } from "@/lib/svg/slots";
 export function useSlotFilling(host: RefObject<HTMLDivElement | null>, svg: string | null) {
   const setSlotState = useEditor((state) => state.setSlotState);
   const setIllustrationStyle = useEditor((state) => state.setIllustrationStyle);
+  const assets = useEditor((state) => state.assets);
   const handled = useRef<string | null>(null);
+  // Keyed by slot id, holding the exact picture written into it, so an enhancement
+  // repaints its slot while an unchanged asset never touches the DOM again.
+  const painted = useRef<Map<string, string>>(new Map());
+  const paintedFor = useRef<string | null>(null);
+
+  // Imported images are already in hand, so they land immediately and separately from
+  // generation. Running them through the generation loop would make the user's own
+  // photograph wait behind model calls that have nothing to do with it.
+  useEffect(() => {
+    const root = host.current?.querySelector("svg");
+    if (!svg || !root) return;
+
+    if (paintedFor.current !== svg) {
+      painted.current.clear();
+      paintedFor.current = svg;
+    }
+
+    for (const slot of findSlots(root)) {
+      if (!slot.assetId) continue;
+
+      const asset = assets.find((item) => item.id === slot.assetId);
+      if (!asset) {
+        setSlotState(slot.id, "failed");
+        continue;
+      }
+
+      if (painted.current.get(slot.id) === asset.dataUri) continue;
+
+      // A cutout is transparent art whatever slot kind the model chose for it, and
+      // clipping one to a rectangle would saw the subject off at the shoulders.
+      const placement = asset.kind === "cutout" ? { ...slot, kind: "illustration" as const } : slot;
+
+      const ok = fillSlot(root, placement, asset.dataUri);
+      if (ok) painted.current.set(slot.id, asset.dataUri);
+      setSlotState(slot.id, ok ? "filled" : "failed");
+    }
+  }, [svg, assets, host, setSlotState]);
 
   useEffect(() => {
     const root = host.current?.querySelector("svg");
@@ -30,7 +68,8 @@ export function useSlotFilling(host: RefObject<HTMLDivElement | null>, svg: stri
 
     resolveIcons(root);
 
-    const slots = findSlots(root).filter((slot) => !slot.filled && slot.prompt);
+    // An asset-bound slot already has its picture and must never be regenerated.
+    const slots = findSlots(root).filter((slot) => !slot.filled && !slot.assetId && slot.prompt);
     if (slots.length === 0) return;
 
     const palette = extractPalette(root);

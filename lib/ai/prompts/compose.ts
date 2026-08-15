@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { AssetSummary } from "@/lib/assets/types";
 import { brandKitPrompt, type BrandKit } from "@/lib/brand/kit";
 import { houseStyle } from "@/lib/ai/prompts/house-style";
 import { templateCatalog, templateSvg, isTemplateId, type TemplateId } from "@/lib/templates";
@@ -42,7 +43,9 @@ structure carries as much weight as its appearance. These rules are hard:
    the x and advancing with dy. Never multiple sibling <text> elements for one block.
 7. Photo areas are empty placeholder shapes on a <g data-slot="image" data-prompt="...">.
    Draw the masked shape, fill it with a flat neutral, and describe the wanted
-   photograph in data-prompt so the app can source or generate it.
+   photograph in data-prompt so the app can source or generate it. A slot may instead
+   carry data-asset="asset-N" to place an image the user imported, in which case the
+   app uses their picture and data-prompt is optional.
 8. Figurative illustration is a <g data-slot="illustration" data-prompt="..."> whose
    data-prompt describes the art. Do not attempt to draw people, animals, vehicles or
    scenes in SVG paths: it will look wrong. Geometry, marks and ornament are yours.
@@ -73,10 +76,12 @@ export type ComposeOptions = {
   currentLayerIds?: string[];
   /** Skeleton to fill, when the user or the router picked one. */
   templateId?: string;
+  /** Images the user imported, described rather than shown. */
+  assets?: AssetSummary[];
 };
 
 export function composePrompt(options: ComposeOptions): string {
-  const { preset, brandKit, currentLayerIds, templateId } = options;
+  const { preset, brandKit, currentLayerIds, templateId, assets } = options;
 
   const sections = [
     "You are a senior graphic designer who writes SVG directly.",
@@ -90,11 +95,59 @@ export function composePrompt(options: ComposeOptions): string {
     templateSection(templateId),
   ];
 
+  if (assets?.length) {
+    sections.push("", assetSection(assets));
+  }
+
   if (currentLayerIds?.length) {
     sections.push("", followUpSection(currentLayerIds));
   }
 
   return sections.filter(Boolean).join("\n");
+}
+
+/**
+ * The model never sees these pictures, so it gets a description and a shape and has to
+ * design around them. This is the difference between a layout built for the user's
+ * product and a layout with a hole the product is dropped into.
+ */
+function assetSection(assets: AssetSummary[]): string {
+  const lines = [
+    "## Imported images",
+    "",
+    "The user supplied these. They are real pictures you cannot see, described for you.",
+    "Design around them: they are the reason this asset exists, not decoration to fit in.",
+    "",
+  ];
+
+  for (const asset of assets) {
+    const notes = [asset.aspect, asset.kind === "cutout" ? "transparent cutout" : "photograph"];
+    if (asset.enhanced) notes.push("already enhanced");
+    lines.push(`- ${asset.id} (${notes.join(", ")}) — ${asset.description || asset.label}`);
+  }
+
+  lines.push(
+    "",
+    "Place one by binding a slot to it instead of writing a data-prompt:",
+    "",
+    '  <g id="product-shot" data-slot="image" data-asset="asset-1" data-h="center" data-v="center">',
+    '    <rect x="120" y="220" width="840" height="840" rx="24" fill="#EFEEEA"/>',
+    "  </g>",
+    "",
+    "The placeholder shape is still yours to draw: it is the mask the photograph is",
+    "clipped to, so an arc or a circle stays an arc or a circle.",
+    "",
+    'A transparent cutout goes on data-slot="illustration" rather than "image". Cutouts',
+    "are never clipped, so give one room to overlap the background and let its silhouette",
+    "break the layout rather than boxing it inside a panel.",
+    "",
+    "Compose type around the subject, not on top of it. If a cutout is a person, keep the",
+    "headline clear of the face.",
+    "",
+    "Place at least one imported image. Only leave one out if the brief asks you to.",
+  );
+
+  return lines.join("\n");
 }
 
 function templateSection(templateId?: string): string {

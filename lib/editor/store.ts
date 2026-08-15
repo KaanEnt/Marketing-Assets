@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
-import { identityTransform, type BaseBox, type LayerTransform } from "@/lib/editor/transform";
+import { identityTransform, sameTransform, type BaseBox, type LayerTransform } from "@/lib/editor/transform";
+import type { Asset } from "@/lib/assets/types";
 import type { LayerInfo } from "@/lib/svg/layers";
 import type { LayoutResult, TextEdit, TextRun } from "@/lib/text/runs";
 import { DEFAULT_PRESET, type PresetId } from "@/lib/layout/presets";
@@ -64,6 +65,18 @@ type EditorState = {
   setLayout: (layout: Record<string, LayoutResult>) => void;
   setEditingRun: (key: string | null) => void;
 
+  /**
+   * Images the user imported. Owned by the project rather than by the chat turn that
+   * introduced them, so a document written on turn five can still place asset-1.
+   */
+  assets: Asset[];
+  /** The one /enhance acts on when the command names no target. */
+  activeAssetId: string | null;
+  addAsset: (asset: Asset) => void;
+  updateAsset: (id: string, patch: Partial<Asset>) => void;
+  removeAsset: (id: string) => void;
+  setActiveAsset: (id: string | null) => void;
+
   setDocument: (
     svg: string,
     presetId: PresetId,
@@ -99,6 +112,8 @@ export const useEditor = create<EditorState>((set, get) => ({
   runs: {},
   layout: {},
   editingRun: null,
+  assets: [],
+  activeAssetId: null,
 
   setSlotState: (id, state) =>
     set((current) => ({ slotState: { ...current.slotState, [id]: state } })),
@@ -116,6 +131,26 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   setEditingRun: (key) => set({ editingRun: key }),
 
+  addAsset: (asset) =>
+    set((state) => ({ assets: [...state.assets, asset], activeAssetId: asset.id })),
+
+  updateAsset: (id, patch) =>
+    set((state) => ({
+      assets: state.assets.map((asset) => (asset.id === id ? { ...asset, ...patch } : asset)),
+    })),
+
+  removeAsset: (id) =>
+    set((state) => {
+      const assets = state.assets.filter((asset) => asset.id !== id);
+      return {
+        assets,
+        activeAssetId:
+          state.activeAssetId === id ? (assets[assets.length - 1]?.id ?? null) : state.activeAssetId,
+      };
+    }),
+
+  setActiveAsset: (id) => set({ activeAssetId: id }),
+
   /**
    * Merge an incoming document into the current stack by id.
    *
@@ -131,12 +166,14 @@ export const useEditor = create<EditorState>((set, get) => ({
       presetId,
       layers: incoming.map((layer) => {
         const previous = existing.get(layer.id);
+        const solved = options?.transforms?.[layer.id];
+
         return {
           ...layer,
           // Geometry changed, so the measured box is stale and gets re-measured.
           baseBox: null,
-          transform: options?.transforms?.[layer.id] ?? previous?.transform ?? null,
-          baseline: options?.transforms?.[layer.id] ?? null,
+          transform: solved ?? handEdit(previous),
+          baseline: solved ?? null,
           visible: previous?.visible ?? true,
           locked: previous?.locked ?? false,
         };
@@ -274,8 +311,40 @@ export const useEditor = create<EditorState>((set, get) => ({
     }),
 
   reset: () =>
-    set({ svg: null, layers: [], selection: [], past: [], future: [], textEdits: {}, runs: {}, layout: {}, editingRun: null }),
+    set({
+      svg: null,
+      layers: [],
+      selection: [],
+      past: [],
+      future: [],
+      textEdits: {},
+      runs: {},
+      layout: {},
+      editingRun: null,
+      assets: [],
+      activeAssetId: null,
+    }),
 }));
+
+/**
+ * The transform a revision should inherit, which is only ever one the user made.
+ *
+ * Every layer that has been measured holds a transform: setBaseBoxes seeds an
+ * identity one, and a format adaptation seeds a solved one. Neither is a hand
+ * edit, and carrying either forward pins the layer to where it sat under the OLD
+ * geometry, so each revision silently drags the new layout back toward the
+ * previous one even though nobody touched anything.
+ *
+ * The comparison is against the layer's baseline rather than the authored
+ * position, so a layer placed by an adaptation is judged against where the
+ * adaptation put it and not against the artboard it was never composed for.
+ */
+function handEdit(previous: EditorLayer | undefined): LayerTransform | null {
+  if (!previous?.transform || !previous.baseBox) return null;
+
+  const baseline = previous.baseline ?? identityTransform(previous.baseBox);
+  return sameTransform(previous.transform, baseline) ? null : previous.transform;
+}
 
 function snapshot(state: { layers: EditorLayer[]; textEdits: Record<string, TextEdit> }): Snapshot {
   const layers: Snapshot["layers"] = {};
