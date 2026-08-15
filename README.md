@@ -53,7 +53,7 @@ because raster at that size looks muddy and cannot take the palette.
 | Framework | Next.js App Router, TypeScript strict, ESM |
 | Render | SVG DOM scene graph |
 | Editor mechanics | Fabric v6 as a transparent shadow interaction canvas |
-| AI | Cursor SDK (`@cursor/sdk`), default `gpt-5.6-sol-high-fast` |
+| AI | Cursor SDK (`@cursor/sdk`), default `grok-4.6` |
 | Raster | Gemini `gemini-2.5-flash-image` |
 | Storage | IndexedDB, browser only |
 | Auth | None |
@@ -82,4 +82,4 @@ That wraps `next dev` in nested `secret-env` calls to compose the `cursor` and `
 profiles. `secret-env` accepts a single `--profile` but spawns with
 `{ ...process.env, ...childEnv }`, so nesting composes without a registry change.
 
-Model selection is overridable via `CURSOR_CHAT_MODEL`.
+Model selection is overridable via `ASSETS_MODEL`.
