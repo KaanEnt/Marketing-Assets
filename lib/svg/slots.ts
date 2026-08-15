@@ -6,6 +6,8 @@ export type Slot = {
   id: string;
   kind: SlotKind;
   prompt: string;
+  /** Set when the slot is bound to an image the user imported rather than a prompt. */
+  assetId?: string;
   /** Local-space box of the placeholder, used to place the image and pick framing. */
   box: { x: number; y: number; width: number; height: number };
   filled: boolean;
@@ -30,6 +32,7 @@ export function findSlots(root: Element): Slot[] {
       id,
       kind,
       prompt: group.getAttribute("data-prompt") ?? "",
+      assetId: group.getAttribute("data-asset") || undefined,
       box: { x: box.x, y: box.y, width: box.width, height: box.height },
       filled: group.getAttribute("data-filled") === "1",
     });
