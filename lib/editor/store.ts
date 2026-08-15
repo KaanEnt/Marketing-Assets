@@ -16,6 +16,8 @@ type Snapshot = Record<string, { transform: LayerTransform | null; visible: bool
 
 const HISTORY_LIMIT = 50;
 
+export type SlotState = "pending" | "generating" | "filled" | "failed";
+
 type EditorState = {
   svg: string | null;
   presetId: PresetId;
@@ -23,6 +25,15 @@ type EditorState = {
   selection: string[];
   past: Snapshot[];
   future: Snapshot[];
+  slotState: Record<string, SlotState>;
+  /**
+   * Locked from the first illustration of a project and reused verbatim after.
+   * Raster art cannot be recoloured, so consistency has to be bought at prompt
+   * time or the assets in one campaign end up in visibly different styles.
+   */
+  illustrationStyle?: string;
+  setSlotState: (id: string, state: SlotState) => void;
+  setIllustrationStyle: (style: string) => void;
 
   setDocument: (svg: string, presetId: PresetId, layers: LayerInfo[]) => void;
   setBaseBoxes: (boxes: Record<string, BaseBox>) => void;
@@ -49,6 +60,12 @@ export const useEditor = create<EditorState>((set, get) => ({
   selection: [],
   past: [],
   future: [],
+  slotState: {},
+
+  setSlotState: (id, state) =>
+    set((current) => ({ slotState: { ...current.slotState, [id]: state } })),
+
+  setIllustrationStyle: (style) => set({ illustrationStyle: style }),
 
   /**
    * Merge an incoming document into the current stack by id.
@@ -77,6 +94,9 @@ export const useEditor = create<EditorState>((set, get) => ({
       selection: [],
       past: [],
       future: [],
+      // Geometry is new, so previously filled slots must be regenerated. The
+      // illustration style deliberately survives, since it defines the project.
+      slotState: {},
     });
   },
 
