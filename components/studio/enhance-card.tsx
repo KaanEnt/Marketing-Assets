@@ -7,6 +7,8 @@ export type Comparison = {
   mode: EnhanceMode;
   before: string;
   after: string;
+  /** Which side carries alpha, so the checkerboard means transparency and nothing else. */
+  transparent: { before: boolean; after: boolean };
 };
 
 /**
@@ -20,8 +22,8 @@ export function EnhanceCard({ comparison }: { comparison: Comparison }) {
   return (
     <div className="mt-2 overflow-hidden rounded-xl border border-mist">
       <div className="grid grid-cols-2 divide-x divide-mist">
-        <Pane label="Imported" src={comparison.before} />
-        <Pane label={comparison.mode} src={comparison.after} accent />
+        <Pane label="Imported" src={comparison.before} transparent={comparison.transparent.before} />
+        <Pane label={comparison.mode} src={comparison.after} transparent={comparison.transparent.after} accent />
       </div>
       <p className="border-t border-mist bg-paper px-2.5 py-1.5 font-mono text-[10px] text-graphite/70">
         {comparison.assetId}
@@ -30,17 +32,29 @@ export function EnhanceCard({ comparison }: { comparison: Comparison }) {
   );
 }
 
-function Pane({ label, src, accent }: { label: string; src: string; accent?: boolean }) {
+const CHECKERBOARD = {
+  backgroundImage:
+    "linear-gradient(45deg,#E4E4E9 25%,transparent 25%,transparent 75%,#E4E4E9 75%),linear-gradient(45deg,#E4E4E9 25%,transparent 25%,transparent 75%,#E4E4E9 75%)",
+  backgroundSize: "10px 10px",
+  backgroundPosition: "0 0, 5px 5px",
+} as const;
+
+function Pane({
+  label,
+  src,
+  transparent,
+  accent,
+}: {
+  label: string;
+  src: string;
+  transparent: boolean;
+  accent?: boolean;
+}) {
   return (
     <figure className="relative">
       <div
-        className="aspect-[4/3] w-full"
-        style={{
-          backgroundImage:
-            "linear-gradient(45deg,#E4E4E9 25%,transparent 25%,transparent 75%,#E4E4E9 75%),linear-gradient(45deg,#E4E4E9 25%,transparent 25%,transparent 75%,#E4E4E9 75%)",
-          backgroundSize: "10px 10px",
-          backgroundPosition: "0 0, 5px 5px",
-        }}
+        className={`aspect-[4/3] w-full ${transparent ? "" : "bg-paper"}`}
+        style={transparent ? CHECKERBOARD : undefined}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- a data URI has nothing to optimise */}
         <img src={src} alt={label} className="h-full w-full object-contain" />

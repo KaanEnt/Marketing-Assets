@@ -240,6 +240,10 @@ export function Studio() {
               mode: command.mode,
               before: target.original.dataUri,
               after: payload.dataUri!,
+              transparent: {
+                before: target.original.kind === "cutout",
+                after: command.mode === "cutout",
+              },
             },
           };
           return next;
@@ -489,16 +493,21 @@ export function Studio() {
 /**
  * What happens next, stated per case.
  *
- * An enhancement on its own changes nothing the user can see on the canvas, so without
- * this the command reads as broken until they happen to ask for a design that uses it.
+ * An enhancement that nothing in the design references changes nothing the user can
+ * see, so the reply has to distinguish the three states rather than claim placement.
+ * Telling them it is live when the canvas did not move reads as a broken command.
  */
 function placementNote(asset: Asset, command: EnhanceCommand): string {
-  const placed = Boolean(useEditor.getState().svg);
+  const svg = useEditor.getState().svg;
   const subject = `${asset.id} · ${command.mode}`;
 
-  return placed
-    ? `Enhanced ${subject}. It is live in any slot bound to ${asset.id}. To put it somewhere else, ask for the layer you want it in.`
-    : `Enhanced ${subject}. Now describe the asset you want and it will be composed around this image.`;
+  if (!svg) {
+    return `Enhanced ${subject}. Now describe the asset you want and it will be composed around this image.`;
+  }
+
+  return svg.includes(`data-asset="${asset.id}"`)
+    ? `Enhanced ${subject}. The design already places it, so the canvas is up to date.`
+    : `Enhanced ${subject}. Nothing in the design uses it yet. Ask for a revision that does, such as "rebuild this around ${asset.id} as the hero".`;
 }
 
 function CommandHints({ onPick }: { onPick: (value: string) => void }) {
