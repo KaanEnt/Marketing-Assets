@@ -67,9 +67,18 @@ export function templateCatalog(preset: Preset): string {
   ].join("\n");
 }
 
-/** The skeleton itself, when the user picked one from the gallery. */
-export function templateBrief(template: Template): string {
-  return [
+/**
+ * The skeleton itself, when the user picked one from the gallery.
+ *
+ * When the brief also carries imported images, the two instructions would
+ * otherwise pull against each other: this section says keep the layout as
+ * drawn, and every drawn photo slot has a data-prompt. Followed literally that
+ * generates a stock photograph and leaves the user's own picture on the floor,
+ * which fails validation and costs a correction round. So the skeleton names
+ * its slots as the place the imports belong.
+ */
+export function templateBrief(template: Template, hasAssets = false): string {
+  const lines = [
     "## Skeleton",
     "",
     `The user picked "${template.label}". ${template.use}`,
@@ -81,11 +90,21 @@ export function templateBrief(template: Template): string {
     "The moves that define it, so you can vary it without losing the shape:",
     "",
     ...template.techniques.map((technique) => `- ${technique}`),
-    "",
-    "```svg",
-    templateSvg(template.id),
-    "```",
-  ].join("\n");
+  ];
+
+  if (hasAssets) {
+    lines.push(
+      "",
+      "This layout's photo and illustration slots are where the imported images below",
+      "go. Bind one with data-asset and drop that slot's data-prompt: the placeholder",
+      "shape stays exactly as drawn, because it is the mask. Only generate into a slot",
+      "that no import fits.",
+    );
+  }
+
+  lines.push("", "```svg", templateSvg(template.id), "```");
+
+  return lines.join("\n");
 }
 
 function describe(template: Template): string {

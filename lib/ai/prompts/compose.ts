@@ -92,7 +92,7 @@ export function composePrompt(options: ComposeOptions): string {
     "",
     brandKitPrompt(brandKit),
     "",
-    templateSection(preset, templateId),
+    templateSection(preset, templateId, Boolean(assets?.length)),
   ];
 
   if (assets?.length) {
@@ -159,9 +159,9 @@ function assetSection(assets: AssetSummary[]): string {
  * already does deterministically. A picked template therefore carries its own
  * preset, and the browsable catalog is filtered to the current one.
  */
-function templateSection(preset: Preset, templateId?: string): string {
+function templateSection(preset: Preset, templateId?: string, hasAssets = false): string {
   const picked = getTemplate(templateId ?? "");
-  if (picked && picked.presetId === preset.id) return templateBrief(picked);
+  if (picked && picked.presetId === preset.id) return templateBrief(picked, hasAssets);
 
   return templateCatalog(preset);
 }
