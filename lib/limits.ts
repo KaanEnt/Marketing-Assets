@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Limiter, storeFromEnv } from "@kaanent/limiter";
+import { createLimiter } from "@kaanent/limiter";
 
 /**
  * What this app costs to run, and what that buys.
@@ -23,11 +23,9 @@ import { Limiter, storeFromEnv } from "@kaanent/limiter";
  * people beats one that half works for five hundred. The budget is what stops
  * the month, and it stops it honestly.
  */
-export const limiter = new Limiter({
-  store: storeFromEnv(),
-
+export const limiter = createLimiter({
   policy: {
-    budget: { monthUsd: Number(process.env.LIMITER_MONTH_USD ?? 100), degradeAt: 0.8 },
+    budget: { monthUsd: 100, degradeAt: 0.8 },
     timezone: "America/New_York",
 
     operations: {
@@ -72,8 +70,13 @@ export const limiter = new Limiter({
 });
 
 /**
- * Absent in this app, which has no auth, and the reason resolveIdentity takes it
- * as an argument rather than reading it from the request: a user id pulled from
- * anything the caller controls is a bucket they can mint at will.
+ * There is deliberately no userId anywhere in this app's guard calls.
+ *
+ * It has no auth, so there is no verified session to take one from, and a user
+ * id read out of a header or a body is not an identity: it is a bucket the
+ * caller mints at will. Two tiers therefore carry the whole per-caller quota
+ * here, the signed cookie and the address, and the address tier is what makes
+ * clearing the cookie unprofitable. A product with real sessions passes its
+ * verified id to guard and gets the third tier for free.
  */
-export const LIMITER_SECRET = process.env.LIMITER_SECRET;
+
