@@ -7,6 +7,14 @@ import { resolveIcons } from "@/lib/svg/icons";
 import { extractPalette, fillSlot, findSlots } from "@/lib/svg/slots";
 
 /**
+ * Three pictures is a composition; eight is a model that lost the plot and a
+ * dollar of generation nobody asked for. A marketing asset that genuinely needs
+ * more than three distinct generated images is rare enough to be worth the
+ * manual pass.
+ */
+const MAX_GENERATED_SLOTS = 3;
+
+/**
  * Resolve icon placeholders and fill photo/illustration slots once a document
  * lands.
  *
@@ -69,8 +77,29 @@ export function useSlotFilling(host: RefObject<HTMLDivElement | null>, svg: stri
     resolveIcons(root);
 
     // An asset-bound slot already has its picture and must never be regenerated.
-    const slots = findSlots(root).filter((slot) => !slot.filled && !slot.assetId && slot.prompt);
-    if (slots.length === 0) return;
+    const wanted = findSlots(root).filter((slot) => !slot.filled && !slot.assetId && slot.prompt);
+    if (wanted.length === 0) return;
+
+    // Each fill is a flat charge, and nothing in the contract stops a document
+    // declaring eight of them. The cap is on the client because this is where the
+    // count is known; the route is limited separately, since a client-side cap is
+    // a courtesy to honest callers rather than a control.
+    //
+    // Biggest first, so a document over the cap spends its budget on the slots
+    // that dominate the composition rather than on whichever came first in
+    // document order.
+    const slots = [...wanted]
+      .sort((a, b) => b.box.width * b.box.height - a.box.width * a.box.height)
+      .slice(0, MAX_GENERATED_SLOTS);
+
+    for (const skipped of wanted.filter((slot) => !slots.includes(slot))) {
+      setSlotState(skipped.id, "failed");
+    }
+    if (slots.length < wanted.length) {
+      console.info(
+        `[slots] filling ${slots.length} of ${wanted.length}; the rest are over the per-document cap`,
+      );
+    }
 
     const palette = extractPalette(root);
     const controller = new AbortController();

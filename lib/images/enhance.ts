@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { GenerateContentResponse } from "@google/genai";
+
 import {
   firstInlineImage,
   getClient,
@@ -113,9 +115,38 @@ export type EnhanceOptions = {
  */
 const ATTEMPTS = 2;
 
-export async function enhanceImage(options: EnhanceOptions): Promise<GeneratedImage> {
+export type EnhanceResult = GeneratedImage & {
+  /**
+   * Every attempt is billed, including one that came back without a picture:
+   * the photograph still went up as input and the refusal still came back as
+   * output. Accumulating them is the difference between settling what the
+   * enhancement cost and settling what its last attempt cost.
+   */
+  usage: GenerateContentResponse["usageMetadata"];
+  /** How many pictures were actually produced, which is what the flat rate applies to. */
+  images: number;
+};
+
+function mergeUsage(
+  into: GenerateContentResponse["usageMetadata"],
+  next: GenerateContentResponse["usageMetadata"],
+): GenerateContentResponse["usageMetadata"] {
+  if (!next) return into;
+  if (!into) return next;
+
+  return {
+    promptTokenCount: (into.promptTokenCount ?? 0) + (next.promptTokenCount ?? 0),
+    candidatesTokenCount: (into.candidatesTokenCount ?? 0) + (next.candidatesTokenCount ?? 0),
+    cachedContentTokenCount:
+      (into.cachedContentTokenCount ?? 0) + (next.cachedContentTokenCount ?? 0),
+    totalTokenCount: (into.totalTokenCount ?? 0) + (next.totalTokenCount ?? 0),
+  };
+}
+
+export async function enhanceImage(options: EnhanceOptions): Promise<EnhanceResult> {
   const aspectRatio = MODE_ASPECT[options.mode];
   let lastReason = "no reason reported";
+  let usage: GenerateContentResponse["usageMetadata"];
 
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
     const response = await getClient().models.generateContent({
@@ -133,8 +164,10 @@ export async function enhanceImage(options: EnhanceOptions): Promise<GeneratedIm
       },
     });
 
+    usage = mergeUsage(usage, response.usageMetadata);
+
     const image = firstInlineImage(response);
-    if (image) return image;
+    if (image) return { ...image, usage, images: 1 };
 
     lastReason = noImageReason(response);
     console.warn(`[enhance] ${options.mode} attempt ${attempt}/${ATTEMPTS} returned no image (${lastReason})`);
@@ -142,7 +175,22 @@ export async function enhanceImage(options: EnhanceOptions): Promise<GeneratedIm
     if (options.signal?.aborted) break;
   }
 
-  throw new Error(
+  // Attempts that produced nothing were still billed for the photograph going up
+  // and the refusal coming back, so the failure carries its usage. A caller that
+  // simply refunded here would under-count a path that costs real money every
+  // time a user retries it.
+  throw new EnhanceFailure(
     `The model returned no image after ${ATTEMPTS} attempts (${lastReason}). Try again, or a different mode.`,
+    usage,
   );
+}
+
+export class EnhanceFailure extends Error {
+  constructor(
+    message: string,
+    readonly usage: GenerateContentResponse["usageMetadata"],
+  ) {
+    super(message);
+    this.name = "EnhanceFailure";
+  }
 }

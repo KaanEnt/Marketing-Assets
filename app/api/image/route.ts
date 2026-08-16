@@ -1,4 +1,8 @@
-import { generateImage, isImageGenConfigured, type SlotKind } from "@/lib/images/generate";
+import { guard } from "@kaanent/limiter/next";
+import { geminiImageCallUsd } from "@kaanent/limiter/gemini";
+
+import { IMAGE_MODEL, generateImage, isImageGenConfigured, type SlotKind } from "@/lib/images/generate";
+import { limiter } from "@/lib/limits";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -22,8 +26,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Image generation is not configured." }, { status: 501 });
   }
 
+  const gate = await guard(request, limiter, { operation: "image.generate" });
+  if (!gate.ok) return gate.response;
+
   try {
-    const image = await generateImage({
+    const { image, usage } = await generateImage({
       prompt,
       kind: payload.kind === "illustration" ? "illustration" : "image",
       palette: payload.palette?.slice(0, 6),
@@ -31,15 +38,24 @@ export async function POST(request: Request) {
       aspect: payload.aspect,
     });
 
+    // A safety block or a text-only reply is billed for what it produced, which is
+    // no picture and some tokens. Settling at images: 0 charges exactly that.
+    await gate.settle(
+      geminiImageCallUsd({ model: IMAGE_MODEL, usage, images: image ? 1 : 0 }),
+    );
+
     if (!image) {
-      return Response.json({ error: "The model returned no image." }, { status: 502 });
+      return gate.decorate(Response.json({ error: "The model returned no image." }, { status: 502 }));
     }
 
-    return Response.json({ dataUri: image.dataUri });
+    return gate.decorate(Response.json({ dataUri: image.dataUri }));
   } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : "Image generation failed." },
-      { status: 500 },
+    await gate.refund();
+    return gate.decorate(
+      Response.json(
+        { error: error instanceof Error ? error.message : "Image generation failed." },
+        { status: 500 },
+      ),
     );
   }
 }
