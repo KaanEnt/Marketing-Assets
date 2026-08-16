@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 1100" data-preset="us-letter" data-template="rounded-mask-offset">
   <defs>
-    <clipPath id="tpl-photo-clip">
+    <clipPath id="rmo-photo-clip">
       <path d="M-12 -12 H432 a72 72 0 0 1 -72 72 V620 a72 72 0 0 1 -72 72 H-12 Z"/>
     </clipPath>
   </defs>

@@ -60,11 +60,22 @@ export function Studio() {
   const canUndo = useEditor((state) => state.past.length > 0);
   const canRedo = useEditor((state) => state.future.length > 0);
 
+  /**
+   * templateId is only ever sent on the opening turn. From the second turn on the
+   * live document is the skeleton, and re-sending the stock one would tell the
+   * model to fill a blank layout again, discarding whatever the user has since
+   * edited.
+   */
   const generate = useCallback(
-    async (message: string, targetPreset: PresetId, layerIds?: string[]) => {
+    async (
+      message: string,
+      targetPreset: PresetId,
+      layerIds?: string[],
+      templateId?: string,
+    ) => {
       setMessages((prev) => [...prev, { role: "user", text: message }, { role: "assistant", text: "" }]);
       setStatus("streaming");
-      setStatusNote("Composing the layout");
+      setStatusNote(templateId ? "Filling the layout" : "Composing the layout");
 
       try {
         await streamSse(
@@ -74,6 +85,7 @@ export function Studio() {
             presetId: targetPreset,
             agentId: agentId.current,
             currentLayerIds: layerIds,
+            templateId,
             // Read at send time rather than from the closure: an import or an
             // enhancement may have landed while the user was typing.
             assets: summarizeAssets(useEditor.getState().assets),
@@ -347,7 +359,7 @@ export function Studio() {
       }
 
       const target = isPresetId(brief.presetId) ? brief.presetId : "us-letter";
-      await generate(brief.message, target);
+      await generate(brief.message, target, undefined, brief.templateId ?? undefined);
     })();
   }, [generate, addAsset, describeAsset]);
 

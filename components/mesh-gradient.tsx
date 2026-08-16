@@ -1,8 +1,12 @@
 /**
  * The signature background. Three slow-drifting radial blooms over warm paper,
- * dense at the bottom so the page reads as light at the fold and saturated below.
- * Pure CSS, so it costs nothing and degrades to a static wash under
- * prefers-reduced-motion.
+ * densest around the fold. Pure CSS, so it costs nothing and degrades to a static
+ * wash under prefers-reduced-motion.
+ *
+ * Sized to its container rather than the page, and washed back out to paper at
+ * its own bottom edge. It belongs to the hero: letting it run the full height of
+ * a scrolling page leaves the lower half fully saturated, which fights the
+ * template previews and reads as a rendering fault rather than a choice.
  */
 export function MeshGradient() {
   return (
@@ -32,15 +36,16 @@ export function MeshGradient() {
       />
 
       {/*
-       * Keeps the top of the page clean so the nav and headline stay legible.
-       * Runs the full height with a long easing tail: a shorter overlay terminates
-       * mid-canvas and leaves a visible horizontal seam where it ends.
+       * Keeps the top of the page clean so the nav and headline stay legible, and
+       * returns to paper at the bottom so the section below starts on a calm
+       * surface. One gradient rather than two overlays: a pair of them terminate
+       * against each other and leave a visible horizontal seam.
        */}
       <div
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to bottom, #FAF9F6 4%, rgba(250,249,246,0.92) 22%, rgba(250,249,246,0.68) 38%, rgba(250,249,246,0.34) 52%, rgba(250,249,246,0.08) 66%, rgba(250,249,246,0) 78%)",
+            "linear-gradient(to bottom, #FAF9F6 4%, rgba(250,249,246,0.92) 22%, rgba(250,249,246,0.68) 38%, rgba(250,249,246,0.34) 52%, rgba(250,249,246,0.12) 66%, rgba(250,249,246,0.38) 80%, rgba(250,249,246,0.78) 91%, #FAF9F6 100%)",
         }}
       />
     </div>

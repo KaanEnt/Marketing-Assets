@@ -3,7 +3,7 @@ import "server-only";
 import type { AssetSummary } from "@/lib/assets/types";
 import { brandKitPrompt, type BrandKit } from "@/lib/brand/kit";
 import { houseStyle } from "@/lib/ai/prompts/house-style";
-import { templateCatalog, templateSvg, isTemplateId, type TemplateId } from "@/lib/templates";
+import { getTemplate, templateBrief, templateCatalog } from "@/lib/templates";
 import { H_CONSTRAINTS, V_CONSTRAINTS } from "@/lib/layout/constraints";
 import { ICON_NAMES } from "@/lib/svg/icons";
 import type { Preset } from "@/lib/layout/presets";
@@ -92,7 +92,7 @@ export function composePrompt(options: ComposeOptions): string {
     "",
     brandKitPrompt(brandKit),
     "",
-    templateSection(templateId),
+    templateSection(preset, templateId, Boolean(assets?.length)),
   ];
 
   if (assets?.length) {
@@ -150,29 +150,20 @@ function assetSection(assets: AssetSummary[]): string {
   return lines.join("\n");
 }
 
-function templateSection(templateId?: string): string {
-  if (templateId && isTemplateId(templateId)) {
-    return [
-      "## Skeleton",
-      "",
-      "Fill the layout below. Keep its layer ids, its constraint choices and its",
-      "structural moves. Replace the copy, the palette and the proportions as the brief",
-      "requires. You may add or drop a layer where the brief genuinely calls for it.",
-      "",
-      "```svg",
-      templateSvg(templateId as TemplateId),
-      "```",
-    ].join("\n");
-  }
+/**
+ * A skeleton is only ever offered at the format it was drawn at.
+ *
+ * Rule 1 requires the returned viewBox to match the target exactly, so handing
+ * over a layout drawn at another size quietly asks the model to reflow it by
+ * hand: the expensive, unreliable version of the job the constraint solver
+ * already does deterministically. A picked template therefore carries its own
+ * preset, and the browsable catalog is filtered to the current one.
+ */
+function templateSection(preset: Preset, templateId?: string, hasAssets = false): string {
+  const picked = getTemplate(templateId ?? "");
+  if (picked && picked.presetId === preset.id) return templateBrief(picked, hasAssets);
 
-  return [
-    "## Skeletons",
-    "",
-    "Four proven layouts. Pick the one that fits the brief and compose in its spirit,",
-    "or compose freely if none fit. Name your choice in your one-line description.",
-    "",
-    templateCatalog(),
-  ].join("\n");
+  return templateCatalog(preset);
 }
 
 function followUpSection(currentLayerIds: string[]): string {

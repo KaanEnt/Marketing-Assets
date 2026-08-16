@@ -1,11 +1,14 @@
 import type { Asset } from "@/lib/assets/types";
 import { DEFAULT_PRESET } from "@/lib/layout/presets";
+import { isTemplateId, type TemplateId } from "@/lib/templates/catalog";
 
 const BRIEF_KEY = "brief";
 
 export type Brief = {
   message: string;
   presetId: string;
+  /** Skeleton picked from the gallery, when the user started from one. */
+  templateId: TemplateId | null;
   assets: Asset[];
 };
 
@@ -51,6 +54,12 @@ export function readBrief(): Brief | null {
     return {
       message: parsed.message,
       presetId: typeof parsed.presetId === "string" ? parsed.presetId : DEFAULT_PRESET,
+      // A retired or mistyped id falls back to a free composition rather than
+      // failing the brief: the message is the part that must survive.
+      templateId:
+        typeof parsed.templateId === "string" && isTemplateId(parsed.templateId)
+          ? parsed.templateId
+          : null,
       assets: Array.isArray(parsed.assets) ? parsed.assets : [],
     };
   } catch {

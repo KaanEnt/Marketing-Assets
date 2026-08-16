@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" data-preset="yt-thumb" data-template="yt-split-compare">
+  <g id="bg-field" data-h="stretch" data-v="stretch">
+    <rect x="0" y="0" width="1280" height="720" fill="#0E1116"/>
+  </g>
+
+  <g id="photo-left" data-h="stretch" data-v="stretch" data-slot="image" data-prompt="photograph of a messy, disorganised workspace before a cleanup, flat overhead light">
+    <path d="M0 0 H700 L580 720 H0 Z" fill="#3A3E46"/>
+  </g>
+
+  <g id="photo-right" data-h="stretch" data-v="stretch" data-slot="image" data-prompt="photograph of the same workspace after a cleanup, tidy and bright, warm light">
+    <path d="M740 0 H1280 V720 H620 Z" fill="#5A4A42"/>
+  </g>
+
+  <g id="divider" data-h="stretch" data-v="stretch">
+    <path d="M700 0 H740 L620 720 H580 Z" fill="#FFD400"/>
+  </g>
+
+  <g id="headline" data-h="center" data-v="top" data-fit="shrink" data-box="280 48 720 76">
+    <rect x="280" y="48" width="720" height="76" rx="10" fill="#0E1116"/>
+    <text x="640" y="102" text-anchor="middle" font-family="Oswald" font-size="46" font-weight="700" letter-spacing="2" fill="#FFD400">WHICH ONE WINS?</text>
+  </g>
+
+  <g id="vs-badge" data-h="center" data-v="center" data-fit="shrink" data-box="584 284 152 152">
+    <circle cx="660" cy="360" r="76" fill="#0E1116" stroke="#FFD400" stroke-width="8"/>
+    <text x="660" y="381" text-anchor="middle" font-family="Oswald" font-size="54" font-weight="700" fill="#FFFFFF">VS</text>
+  </g>
+
+  <g id="label-left" data-h="left" data-v="bottom" data-fit="shrink" data-box="64 570 400 66">
+    <text x="64" y="620" font-family="Oswald" font-size="54" font-weight="700" letter-spacing="2" fill="#FFFFFF">BEFORE</text>
+  </g>
+
+  <g id="label-right" data-h="right" data-v="bottom" data-fit="shrink" data-box="816 570 400 66">
+    <text x="1216" y="620" text-anchor="end" font-family="Oswald" font-size="54" font-weight="700" letter-spacing="2" fill="#FFFFFF">AFTER</text>
+  </g>
+</svg>
