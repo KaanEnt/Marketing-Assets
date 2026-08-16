@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { GenerateContentResponse } from "@google/genai";
+
 import { firstInlineImage, getClient, noImageReason, type GeneratedImage } from "@/lib/images/client";
 
 // Nano Banana Pro. Chosen over the flash tier for one reason: this app edits the user's
@@ -66,7 +68,13 @@ function buildPrompt(options: GenerateOptions): string {
   return parts.join("\n");
 }
 
-export async function generateImage(options: GenerateOptions): Promise<GeneratedImage | null> {
+export type GenerateResult = {
+  image: GeneratedImage | null;
+  /** Returned so the caller settles what this cost rather than assuming the happy path. */
+  usage?: GenerateContentResponse["usageMetadata"];
+};
+
+export async function generateImage(options: GenerateOptions): Promise<GenerateResult> {
   const response = await getClient().models.generateContent({
     model: IMAGE_MODEL,
     contents: buildPrompt(options),
@@ -76,13 +84,14 @@ export async function generateImage(options: GenerateOptions): Promise<Generated
     },
   });
 
+  const usage = response.usageMetadata;
   const image = firstInlineImage(response);
-  if (image) return image;
+  if (image) return { image, usage };
 
   // A successful response with no image means a safety block, recitation, or a
   // text-only reply. Surface why, so a silent null is never read as "no work".
   console.warn(
     `[images] no image for "${options.prompt.slice(0, 60)}" (${noImageReason(response)})`,
   );
-  return null;
+  return { image: null, usage };
 }
