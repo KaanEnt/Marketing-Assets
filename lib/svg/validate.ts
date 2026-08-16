@@ -45,7 +45,12 @@ const FORBIDDEN_REASON: Record<string, string> = {
  * This is validation, not sanitization. The XSS boundary is the browser, where
  * DOMPurify runs before anything touches the live DOM.
  */
-export function validateSvg(source: string, preset: Preset): ValidationResult {
+export function validateSvg(
+  source: string,
+  preset: Preset,
+  /** Ids of images the user imported. A slot may bind to one instead of carrying a prompt. */
+  assetIds: string[] = [],
+): ValidationResult {
   const violations: Violation[] = [];
   const groupIds: string[] = [];
   const add = (code: string, message: string, layerId?: string) =>
@@ -148,14 +153,44 @@ export function validateSvg(source: string, preset: Preset): ValidationResult {
       add("bad-slot", `data-slot "${kind}" is invalid. Use "image" or "illustration".`);
       continue;
     }
-    if (!element.getAttribute("data-prompt")?.trim()) {
-      const id = element.getAttribute("id") ?? "a slot";
+    const id = element.getAttribute("id") ?? undefined;
+    const bound = element.getAttribute("data-asset")?.trim();
+
+    if (bound && !assetIds.includes(bound)) {
       add(
-        "missing-slot-prompt",
-        `Layer "${id}" is a ${kind} slot with no data-prompt, so nothing can be generated for it.`,
-        element.getAttribute("id") ?? undefined,
+        "unknown-asset",
+        `data-asset "${bound}" on "${id ?? "a slot"}" is not an imported image. Available: ${
+          assetIds.length ? assetIds.join(", ") : "none"
+        }.`,
+        id,
       );
     }
+
+    // A slot needs a source. Either the user supplied the picture or the model has to
+    // describe one, and a slot with neither silently renders as an empty grey box.
+    if (!bound && !element.getAttribute("data-prompt")?.trim()) {
+      add(
+        "missing-slot-source",
+        `Layer "${id ?? "a slot"}" is a ${kind} slot with neither data-prompt nor data-asset, so nothing can fill it.`,
+        id,
+      );
+    }
+  }
+
+  const placed = new Set(
+    Array.from(svg.querySelectorAll("[data-asset]"))
+      .map((element) => element.getAttribute("data-asset")?.trim())
+      .filter(Boolean) as string[],
+  );
+
+  // Ignoring the import entirely is a dropped instruction, not a design decision, and
+  // the failure is invisible: the layout looks fine while the user's photo is absent.
+  // Using only some of several imports is left alone, since a brief may well ask for it.
+  if (assetIds.length > 0 && placed.size === 0) {
+    add(
+      "unplaced-assets",
+      `The user imported ${assetIds.join(", ")} and the document places none of them. Bind at least one slot with data-asset.`,
+    );
   }
 
   for (const element of svg.querySelectorAll("[font-family]")) {

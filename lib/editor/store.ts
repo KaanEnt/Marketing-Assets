@@ -1,7 +1,9 @@
 import { create } from "zustand";
 
-import { identityTransform, type BaseBox, type LayerTransform } from "@/lib/editor/transform";
+import { identityTransform, sameTransform, type BaseBox, type LayerTransform } from "@/lib/editor/transform";
+import type { Asset } from "@/lib/assets/types";
 import type { LayerInfo } from "@/lib/svg/layers";
+import type { LayoutResult, TextEdit, TextRun } from "@/lib/text/runs";
 import { DEFAULT_PRESET, type PresetId } from "@/lib/layout/presets";
 
 export type EditorLayer = LayerInfo & {
@@ -19,7 +21,10 @@ export type EditorLayer = LayerInfo & {
   locked: boolean;
 };
 
-type Snapshot = Record<string, { transform: LayerTransform | null; visible: boolean; locked: boolean }>;
+type Snapshot = {
+  layers: Record<string, { transform: LayerTransform | null; visible: boolean; locked: boolean }>;
+  textEdits: Record<string, TextEdit>;
+};
 
 const HISTORY_LIMIT = 50;
 
@@ -40,6 +45,13 @@ type EditorState = {
   past: Snapshot[];
   future: Snapshot[];
   slotState: Record<string, SlotState>;
+  textEdits: Record<string, TextEdit>;
+  /** Every block of copy as the document authored it, before any edit. */
+  runs: Record<string, TextRun>;
+  /** What each block actually rendered as, once wrapped and fitted. */
+  layout: Record<string, LayoutResult>;
+  /** Run currently open in the inline editor, as layerId#index. */
+  editingRun: string | null;
   /**
    * Locked from the first illustration of a project and reused verbatim after.
    * Raster art cannot be recoloured, so consistency has to be bought at prompt
@@ -48,6 +60,22 @@ type EditorState = {
   illustrationStyle?: string;
   setSlotState: (id: string, state: SlotState) => void;
   setIllustrationStyle: (style: string) => void;
+  setTextEdit: (key: string, patch: TextEdit) => void;
+  setRuns: (runs: Record<string, TextRun>) => void;
+  setLayout: (layout: Record<string, LayoutResult>) => void;
+  setEditingRun: (key: string | null) => void;
+
+  /**
+   * Images the user imported. Owned by the project rather than by the chat turn that
+   * introduced them, so a document written on turn five can still place asset-1.
+   */
+  assets: Asset[];
+  /** The one /enhance acts on when the command names no target. */
+  activeAssetId: string | null;
+  addAsset: (asset: Asset) => void;
+  updateAsset: (id: string, patch: Partial<Asset>) => void;
+  removeAsset: (id: string) => void;
+  setActiveAsset: (id: string | null) => void;
 
   setDocument: (
     svg: string,
@@ -80,11 +108,48 @@ export const useEditor = create<EditorState>((set, get) => ({
   past: [],
   future: [],
   slotState: {},
+  textEdits: {},
+  runs: {},
+  layout: {},
+  editingRun: null,
+  assets: [],
+  activeAssetId: null,
 
   setSlotState: (id, state) =>
     set((current) => ({ slotState: { ...current.slotState, [id]: state } })),
 
   setIllustrationStyle: (style) => set({ illustrationStyle: style }),
+
+  setTextEdit: (key, patch) => {
+    get().pushHistory();
+    set((state) => ({ textEdits: { ...state.textEdits, [key]: { ...state.textEdits[key], ...patch } } }));
+  },
+
+  setRuns: (runs) => set({ runs }),
+
+  setLayout: (layout) => set({ layout }),
+
+  setEditingRun: (key) => set({ editingRun: key }),
+
+  addAsset: (asset) =>
+    set((state) => ({ assets: [...state.assets, asset], activeAssetId: asset.id })),
+
+  updateAsset: (id, patch) =>
+    set((state) => ({
+      assets: state.assets.map((asset) => (asset.id === id ? { ...asset, ...patch } : asset)),
+    })),
+
+  removeAsset: (id) =>
+    set((state) => {
+      const assets = state.assets.filter((asset) => asset.id !== id);
+      return {
+        assets,
+        activeAssetId:
+          state.activeAssetId === id ? (assets[assets.length - 1]?.id ?? null) : state.activeAssetId,
+      };
+    }),
+
+  setActiveAsset: (id) => set({ activeAssetId: id }),
 
   /**
    * Merge an incoming document into the current stack by id.
@@ -101,12 +166,14 @@ export const useEditor = create<EditorState>((set, get) => ({
       presetId,
       layers: incoming.map((layer) => {
         const previous = existing.get(layer.id);
+        const solved = options?.transforms?.[layer.id];
+
         return {
           ...layer,
           // Geometry changed, so the measured box is stale and gets re-measured.
           baseBox: null,
-          transform: options?.transforms?.[layer.id] ?? previous?.transform ?? null,
-          baseline: options?.transforms?.[layer.id] ?? null,
+          transform: solved ?? handEdit(previous),
+          baseline: solved ?? null,
           visible: previous?.visible ?? true,
           locked: previous?.locked ?? false,
         };
@@ -118,6 +185,13 @@ export const useEditor = create<EditorState>((set, get) => ({
       // illustration style deliberately survives, since it defines the project.
       // An adaptation is the exception: it carries the pictures over in markup.
       slotState: options?.keepSlots ? get().slotState : {},
+      // Copy edits are keyed to a run's position inside a layer, and a new
+      // document is free to have rewritten that copy deliberately. Carrying them
+      // over would silently overwrite what the model was just asked to produce.
+      textEdits: options?.keepSlots ? get().textEdits : {},
+      runs: {},
+      layout: {},
+      editingRun: null,
     });
   },
 
@@ -130,7 +204,37 @@ export const useEditor = create<EditorState>((set, get) => ({
         // A transform carried over from a previous revision is kept as-is: the
         // user put the layer there deliberately and a redraw should not move it.
         // Only a layer that has never been touched adopts the authored position.
-        return { ...layer, baseBox: box, transform: layer.transform ?? identityTransform(box) };
+        if (!layer.transform || !layer.baseBox) {
+          return { ...layer, baseBox: box, transform: layer.transform ?? identityTransform(box) };
+        }
+
+        /**
+         * The geometry changed under a transform that was written against the old
+         * geometry. A transform places the layer's centre, so re-measuring a block
+         * that grew by a line would slide it by half that line: editing copy would
+         * move the text you were editing. Shifting the transform by the same delta
+         * holds the layer exactly where it renders now, whether it sits where it
+         * was authored or where someone dragged it.
+         */
+        const before = identityTransform(layer.baseBox);
+        const after = identityTransform(box);
+        const dx = (after.cx - before.cx) * layer.transform.sx;
+        const dy = (after.cy - before.cy) * layer.transform.sy;
+        if (dx === 0 && dy === 0) return { ...layer, baseBox: box };
+
+        const shift = (transform: LayerTransform) => ({
+          ...transform,
+          cx: transform.cx + dx,
+          cy: transform.cy + dy,
+        });
+
+        return {
+          ...layer,
+          baseBox: box,
+          transform: shift(layer.transform),
+          // Moved with it, or every re-measured layer would read as hand-edited.
+          baseline: layer.baseline ? shift(layer.baseline) : null,
+        };
       }),
     })),
 
@@ -138,7 +242,7 @@ export const useEditor = create<EditorState>((set, get) => ({
 
   pushHistory: () =>
     set((state) => ({
-      past: [...state.past, snapshot(state.layers)].slice(-HISTORY_LIMIT),
+      past: [...state.past, snapshot(state)].slice(-HISTORY_LIMIT),
       future: [],
     })),
 
@@ -187,8 +291,9 @@ export const useEditor = create<EditorState>((set, get) => ({
 
       return {
         past: state.past.slice(0, -1),
-        future: [snapshot(state.layers), ...state.future].slice(0, HISTORY_LIMIT),
+        future: [snapshot(state), ...state.future].slice(0, HISTORY_LIMIT),
         layers: restore(state.layers, previous),
+        textEdits: previous.textEdits,
       };
     }),
 
@@ -198,30 +303,64 @@ export const useEditor = create<EditorState>((set, get) => ({
       if (!next) return state;
 
       return {
-        past: [...state.past, snapshot(state.layers)].slice(-HISTORY_LIMIT),
+        past: [...state.past, snapshot(state)].slice(-HISTORY_LIMIT),
         future: state.future.slice(1),
         layers: restore(state.layers, next),
+        textEdits: next.textEdits,
       };
     }),
 
-  reset: () => set({ svg: null, layers: [], selection: [], past: [], future: [] }),
+  reset: () =>
+    set({
+      svg: null,
+      layers: [],
+      selection: [],
+      past: [],
+      future: [],
+      textEdits: {},
+      runs: {},
+      layout: {},
+      editingRun: null,
+      assets: [],
+      activeAssetId: null,
+    }),
 }));
 
-function snapshot(layers: EditorLayer[]): Snapshot {
-  const result: Snapshot = {};
-  for (const layer of layers) {
-    result[layer.id] = {
+/**
+ * The transform a revision should inherit, which is only ever one the user made.
+ *
+ * Every layer that has been measured holds a transform: setBaseBoxes seeds an
+ * identity one, and a format adaptation seeds a solved one. Neither is a hand
+ * edit, and carrying either forward pins the layer to where it sat under the OLD
+ * geometry, so each revision silently drags the new layout back toward the
+ * previous one even though nobody touched anything.
+ *
+ * The comparison is against the layer's baseline rather than the authored
+ * position, so a layer placed by an adaptation is judged against where the
+ * adaptation put it and not against the artboard it was never composed for.
+ */
+function handEdit(previous: EditorLayer | undefined): LayerTransform | null {
+  if (!previous?.transform || !previous.baseBox) return null;
+
+  const baseline = previous.baseline ?? identityTransform(previous.baseBox);
+  return sameTransform(previous.transform, baseline) ? null : previous.transform;
+}
+
+function snapshot(state: { layers: EditorLayer[]; textEdits: Record<string, TextEdit> }): Snapshot {
+  const layers: Snapshot["layers"] = {};
+  for (const layer of state.layers) {
+    layers[layer.id] = {
       transform: layer.transform ? { ...layer.transform } : null,
       visible: layer.visible,
       locked: layer.locked,
     };
   }
-  return result;
+  return { layers, textEdits: { ...state.textEdits } };
 }
 
 function restore(layers: EditorLayer[], state: Snapshot): EditorLayer[] {
   return layers.map((layer) => {
-    const saved = state[layer.id];
+    const saved = state.layers[layer.id];
     if (!saved) return layer;
     return {
       ...layer,

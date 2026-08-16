@@ -17,6 +17,10 @@ export function registerLiveRoot(next: SVGSVGElement | null) {
   root = next;
 }
 
+export function liveRoot(): SVGSVGElement | null {
+  return root?.isConnected ? root : null;
+}
+
 export function liveSvg(): string | null {
   if (!root?.isConnected) return null;
   return new XMLSerializer().serializeToString(root);

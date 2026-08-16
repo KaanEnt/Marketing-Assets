@@ -11,6 +11,29 @@ export type ModelOption = { id: string; label: string };
 // and would silently override this app's default.
 export const DEFAULT_MODEL = process.env.ASSETS_MODEL || "grok-4.6";
 
+/**
+ * Tried once when the default cannot produce a document that satisfies the
+ * contract, after its correction rounds are spent.
+ *
+ * Worth being precise about what this does and does not buy. Grok's measured
+ * weakness is composition: a rule drawn through a headline, a photo panel landing
+ * on top of text. None of that fails validation, because the validator checks
+ * structure and cannot see overlap, so none of it triggers a rescue. What this
+ * catches is the harder failure, where the document does not parse or does not
+ * meet the contract at all, and where a second model has a real chance because it
+ * is starting from a clean sheet rather than arguing with its own last answer.
+ *
+ * A fresh agent, deliberately. The failed conversation is noise, and the point of
+ * the retry is a different model's independent attempt.
+ */
+export const RESCUE_MODEL = process.env.ASSETS_RESCUE_MODEL || "gpt-5.6-sol";
+
+/** Null when there is nothing to escalate to, or nowhere to escalate from. */
+export function rescueModelFor(primary: string): string | null {
+  if (!RESCUE_MODEL.trim() || RESCUE_MODEL === primary) return null;
+  return RESCUE_MODEL;
+}
+
 export const fallbackModels: ModelOption[] = [
   { id: "grok-4.6", label: "Cursor Grok 4.6" },
   { id: "grok-4.5", label: "Cursor Grok 4.5" },

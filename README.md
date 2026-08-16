@@ -46,6 +46,41 @@ figurative illustration well, so that is delegated to Gemini as transparent PNG.
 are the exception in the other direction: 24px glyphs come from Lucide as inline SVG,
 because raster at that size looks muddy and cannot take the palette.
 
+## Imported images
+
+Attach a photograph in the chat, or on the landing brief, and it becomes a project
+asset with a stable id. A vision model captions it, because the design agent composes
+around pictures it never sees, and the caption is what turns a hole in the layout into
+a layout built for the product.
+
+`/enhance` re-shoots that photograph through Gemini in one of four modes:
+
+| Mode | Job |
+| --- | --- |
+| `auto` | Clean background, studio light, subject untouched |
+| `product` | Seamless studio hero, label and packaging preserved |
+| `thumbnail` | Punchy 16:9 hero with the top third left clear for a headline |
+| `cutout` | Subject on transparency, ready to layer over the design |
+
+Anything after the mode is extra direction: `/enhance product on a pale sage backdrop`.
+
+Every pass runs from the image as imported, never from the previous result, so
+switching modes or re-running one cannot compound artefacts and revert is always one
+click. The preservation clause is stated before the creative direction in every mode,
+because a generator asked to improve a photo will otherwise redesign the product.
+
+The document binds a slot to an asset rather than describing one:
+
+```svg
+<g id="product-shot" data-slot="image" data-asset="asset-1" data-h="center" data-v="center">
+  <rect x="120" y="220" width="840" height="840" rx="24" fill="#EFEEEA"/>
+</g>
+```
+
+The placeholder shape is still the mask, so an arc-masked slot stays arc-masked. A
+cutout is never clipped, whatever slot kind it lands on. Enhancing an already-placed
+asset repaints its slot in place with no further model call.
+
 ## Stack
 
 | Concern | Choice |
@@ -53,8 +88,8 @@ because raster at that size looks muddy and cannot take the palette.
 | Framework | Next.js App Router, TypeScript strict, ESM |
 | Render | SVG DOM scene graph |
 | Editor mechanics | Fabric v6 as a transparent shadow interaction canvas |
-| AI | Cursor SDK (`@cursor/sdk`), default `grok-4.6` |
-| Raster | Gemini `gemini-2.5-flash-image` |
+| AI | Cursor SDK (`@cursor/sdk`), default `grok-4.6`, rescue `gpt-5.6-sol` |
+| Raster | Gemini `gemini-3-pro-image`, captions on `gemini-3.5-flash-lite` |
 | Storage | IndexedDB, browser only |
 | Auth | None |
 
@@ -82,4 +117,19 @@ That wraps `next dev` in nested `secret-env` calls to compose the `cursor` and `
 profiles. `secret-env` accepts a single `--profile` but spawns with
 `{ ...process.env, ...childEnv }`, so nesting composes without a registry change.
 
-Model selection is overridable via `ASSETS_MODEL`.
+Model selection is overridable via `ASSETS_MODEL`, and the rescue model via
+`ASSETS_RESCUE_MODEL`.
+
+### The rescue pass
+
+Grok runs every generation. If it spends both correction rounds and still has not
+returned a document that satisfies the contract, the turn starts over on
+`gpt-5.6-sol` with a fresh agent, and the project's agent moves with it so later
+revisions continue on whichever model actually worked. A model picked by hand is
+never escalated behind the user's back.
+
+Worth being precise about what this catches. Grok's measured weakness is
+composition: a rule drawn through a headline, a photo panel landing on text. None of
+that fails validation, because the validator checks structure and cannot see
+overlap, so none of it triggers a rescue. What the rescue catches is the harder
+failure, where the document does not parse or does not meet the contract at all.
