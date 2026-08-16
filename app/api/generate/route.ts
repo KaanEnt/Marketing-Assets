@@ -2,7 +2,7 @@ import { CursorAgentError } from "@cursor/sdk";
 import { guard } from "@kaanent/limiter/next";
 import { readCursorUsd } from "@kaanent/limiter/cursor";
 
-import { LIMITER_SECRET, limiter } from "@/lib/limits";
+import { limiter } from "@/lib/limits";
 import { resumeOrCreate, runTurn, type AgentHandle } from "@/lib/ai/agent";
 import { composePrompt, correctionPrompt } from "@/lib/ai/prompts/compose";
 import { closeSseController, createSseSender, sseHeaders } from "@/lib/ai/sse";
@@ -50,10 +50,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const gate = await guard(request, limiter, {
-    operation: "design.generate",
-    secret: LIMITER_SECRET,
-  });
+  const gate = await guard(request, limiter, { operation: "design.generate" });
   if (!gate.ok) return gate.response;
 
   const preset = getPreset(payload.presetId ?? "") ?? PRESETS[DEFAULT_PRESET];

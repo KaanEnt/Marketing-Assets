@@ -2,7 +2,7 @@ import { guard } from "@kaanent/limiter/next";
 import { geminiImageCallUsd } from "@kaanent/limiter/gemini";
 
 import { IMAGE_MODEL, generateImage, isImageGenConfigured, type SlotKind } from "@/lib/images/generate";
-import { LIMITER_SECRET, limiter } from "@/lib/limits";
+import { limiter } from "@/lib/limits";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Image generation is not configured." }, { status: 501 });
   }
 
-  const gate = await guard(request, limiter, { operation: "image.generate", secret: LIMITER_SECRET });
+  const gate = await guard(request, limiter, { operation: "image.generate" });
   if (!gate.ok) return gate.response;
 
   try {
