@@ -92,6 +92,7 @@ asset repaints its slot in place with no further model call.
 | Raster | Gemini `gemini-3-pro-image`, captions on `gemini-3.5-flash-lite` |
 | Storage | IndexedDB, browser only |
 | Auth | None |
+| Cost control | [`@kaanent/limiter`](https://github.com/KaanEnt/Limiter), written here and extracted |
 
 ## Formats
 
@@ -105,9 +106,41 @@ scale factor.
 Logo: square and horizontal canvases, exported as SVG plus transparent PNG at 512, 1024
 and 2048.
 
+## Limits and spend
+
+Public, no login, and every interesting thing it does costs money. Two of the
+four paid calls are priced exactly, because Gemini bills image output per picture
+rather than per token: a slot fill is $0.134 and an enhance is the same again per
+attempt. The design agent is the uncertain one, because it is a full Cursor agent
+harness rather than a single completion.
+
+A completed asset is roughly $2, so a $100 month buys about fifty of them. That
+number is the honest constraint, and no arrangement of per-caller quotas changes
+it. Only a cheaper call, a larger budget, or visitors spending their own keys
+does.
+
+So the limiter counts calls **and** dollars, and the dollars are the ceiling. It
+reserves an estimate before each call and settles the real figure afterwards from
+`Agent.getUsage()` and Gemini's `usageMetadata`, which is what stops a burst of
+concurrent requests each deciding independently that there is room. At 80 percent
+of the budget the expensive paths shut off and the cheap ones keep answering; at
+100 percent everything stops until the month turns.
+
+With no auth there is no verified session, so quota is carried by a signed cookie
+and the caller's address, both enforced together. Clearing the cookie earns a new
+cookie bucket and the same address bucket.
+
+Policy lives in [`lib/limits.ts`](lib/limits.ts). The numbers, the levers, and
+what to do when the log disagrees with them are in [`docs/LIMITS.md`](docs/LIMITS.md).
+
+The limiter itself is a standalone package rather than app code, so the next
+product installs it instead of rebuilding it.
+
 ## Development
 
 Secrets resolve through the macOS Keychain broker. No `.env` file, no keys in the repo.
+`LIMITER_SECRET` and the Redis pair are the two a deployment adds; see
+[`docs/LIMITS.md`](docs/LIMITS.md).
 
 ```bash
 npm run dev
