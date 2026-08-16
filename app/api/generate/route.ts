@@ -1,5 +1,8 @@
 import { CursorAgentError } from "@cursor/sdk";
+import { guard } from "@kaanent/limiter/next";
+import { readCursorUsd } from "@kaanent/limiter/cursor";
 
+import { LIMITER_SECRET, limiter } from "@/lib/limits";
 import { resumeOrCreate, runTurn, type AgentHandle } from "@/lib/ai/agent";
 import { composePrompt, correctionPrompt } from "@/lib/ai/prompts/compose";
 import { closeSseController, createSseSender, sseHeaders } from "@/lib/ai/sse";
@@ -16,6 +19,11 @@ export const maxDuration = 300;
 // Two corrections, then surface the failure. A model that cannot satisfy the contract
 // in three attempts will not satisfy it in five, and the user is left waiting.
 const MAX_CORRECTIONS = 2;
+
+// The rescue is the most expensive single decision this route makes, so it is a
+// lever rather than a fixed behaviour. On by default, because turning it off
+// changes what the product does rather than what it costs.
+const RESCUE_ENABLED = process.env.ASSETS_RESCUE_ENABLED !== "false";
 
 type GenerateRequest = {
   message?: string;
@@ -42,17 +50,55 @@ export async function POST(request: Request) {
     );
   }
 
+  const gate = await guard(request, limiter, {
+    operation: "design.generate",
+    secret: LIMITER_SECRET,
+  });
+  if (!gate.ok) return gate.response;
+
   const preset = getPreset(payload.presetId ?? "") ?? PRESETS[DEFAULT_PRESET];
   const requested = payload.model?.trim();
   const primary = requested || DEFAULT_MODEL;
   // A model the user picked by hand is respected as picked; escalating behind
   // their back would make the picker a suggestion.
-  const rescue = requested ? null : rescueModelFor(primary);
+  //
+  // The budget vetoes it too. A rescue is three more turns on a model costing
+  // five times as much per token, which is the single most expensive thing this
+  // route can decide to do, and the point of degrading is to stop deciding it
+  // while there is still budget left for ordinary work.
+  const rescue = requested || gate.degraded || !RESCUE_ENABLED ? null : rescueModelFor(primary);
   const assets = payload.assets ?? [];
   const assetIds = assets.map((asset) => asset.id);
 
   let agent: AgentHandle | undefined;
   let closed = false;
+
+  /**
+   * Summed rather than settled per agent: a rescued turn spans two agents and one
+   * reservation, and settling twice would let the second overwrite the first.
+   * Null stays null, so a cost that never lands upstream leaves the estimate in
+   * place instead of quietly zeroing the turn.
+   */
+  let spentUsd: number | null = null;
+
+  const bank = async (used: AgentHandle) => {
+    const usd = await readCursorUsd(used, {
+      onUnsettled: (reason) => console.warn(`[limits] design.generate unsettled: ${reason}`),
+    });
+    if (usd !== null) spentUsd = (spentUsd ?? 0) + usd;
+  };
+
+  const release = async (used: AgentHandle | undefined) => {
+    if (!used) return;
+    // Usage is read before disposal, because a disposed agent has nothing to ask.
+    await bank(used);
+    await used[Symbol.asyncDispose]().catch(() => {});
+  };
+
+  const close = async () => {
+    if (spentUsd === null) return;
+    await gate.settle(spentUsd);
+  };
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -118,7 +164,7 @@ export async function POST(request: Request) {
           send("rescuing", { from: primary, to: rescue, violations: outcome?.violations });
           // Dispose the exhausted agent before starting a clean one, so two live
           // agents are never billed against the same turn.
-          await agent?.[Symbol.asyncDispose]().catch(() => {});
+          await release(agent);
           agent = undefined;
           outcome = await attempt(rescue, undefined);
         }
@@ -145,16 +191,21 @@ export async function POST(request: Request) {
           kind: error instanceof CursorAgentError ? "cursor-agent" : "unknown",
         });
       } finally {
-        await agent?.[Symbol.asyncDispose]().catch(() => {});
+        await release(agent);
+        await close();
         closed = true;
         closeSseController(controller);
       }
     },
+    // An abandoned turn is still a billed turn: the agent ran until the browser
+    // went away. Settling on cancel is what stops a user who reloads repeatedly
+    // from generating unmetered work.
     async cancel() {
       closed = true;
-      await agent?.[Symbol.asyncDispose]().catch(() => {});
+      await release(agent);
+      await close();
     },
   });
 
-  return new Response(stream, { headers: sseHeaders });
+  return gate.decorate(new Response(stream, { headers: sseHeaders }));
 }
