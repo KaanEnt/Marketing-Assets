@@ -13,8 +13,8 @@
   },
   "dependencies": {
     "@cursor/sdk": "^1.0.13",
-    "@kaanent/limiter": "github:KaanEnt/Limiter",
     "@google/genai": "^2.10.0",
+    "@kaanent/limiter": "github:KaanEnt/Limiter",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.13",
     "fabric": "^6.9.1",
